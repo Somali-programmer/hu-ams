@@ -8,8 +8,8 @@ import { format, addMinutes } from 'date-fns';
 import { MOCK_SECTIONS, MOCK_SESSIONS, MOCK_ATTENDANCE } from './mockData';
 import AnalyticsCard from './components/AnalyticsCard';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
-
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAppData } from './AppDataContext';
 
 interface InstructorDashboardProps {
   view?: 'overview' | 'sessions' | 'sections' | 'reports';
@@ -18,6 +18,7 @@ interface InstructorDashboardProps {
 const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overview' }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { sections: allSections, semesters, courses, updateSection, enrollments, users, sessions, addSession, updateSession, attendance } = useAppData();
   const [sections, setSections] = useState<Section[]>([]);
   const [activeSession, setActiveSession] = useState<ClassSession | null>(null);
   const [liveAttendance, setLiveAttendance] = useState<(Attendance & { student?: User })[]>([]);
@@ -26,6 +27,18 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
   const [editingGeofence, setEditingGeofence] = useState<Record<string, { latitude: string, longitude: string, radius: string }>>({});
   const [tokenTimeRemaining, setTokenTimeRemaining] = useState<string>('--:--');
   const [sessionTimeRemaining, setSessionTimeRemaining] = useState<string>('--:--');
+  const [isRosterModalOpen, setIsRosterModalOpen] = useState(false);
+  const [rosterSectionId, setRosterSectionId] = useState<string | null>(null);
+
+  const activeSemester = semesters.find(s => s.isActive);
+
+  useEffect(() => {
+    if (!user || !activeSemester) return;
+
+    const instructorSections = allSections.filter(s => s.instructorId === user.userId && s.semesterId === activeSemester.semesterId);
+    setSections(instructorSections);
+    if (instructorSections.length > 0 && !selectedSection) setSelectedSection(instructorSections[0].sectionId);
+  }, [user, allSections, activeSemester]);
 
   useEffect(() => {
     if (!activeSession) return;
@@ -83,26 +96,27 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
   };
 
   const handleSaveGeofence = (sectionId: string) => {
+    const updates = editingGeofence[sectionId];
+    if (updates) {
+      updateSection(sectionId, {
+        geofenceCenter: {
+          latitude: parseFloat(updates.latitude),
+          longitude: parseFloat(updates.longitude)
+        },
+        geofenceRadius: parseFloat(updates.radius)
+      });
+    }
     alert(`Saved geofence for section ${sectionId}`);
     handleCancelGeofence(sectionId);
   };
 
   useEffect(() => {
-    if (!user) return;
-
-    // Load mock sections
-    const instructorSections = MOCK_SECTIONS.filter(s => s.instructorId === user.userId);
-    setSections(instructorSections);
-    if (instructorSections.length > 0 && !selectedSection) setSelectedSection(instructorSections[0].sectionId);
-  }, [user]);
-
-  useEffect(() => {
     if (!user || !selectedSection) return;
 
-    // Load mock active session
-    const session = MOCK_SESSIONS.find(s => s.sectionId === selectedSection && s.status === 'active');
+    // Load active session from context
+    const session = sessions.find(s => s.sectionId === selectedSection && s.status === 'active');
     setActiveSession(session || null);
-  }, [user, selectedSection]);
+  }, [user, selectedSection, sessions]);
 
   useEffect(() => {
     if (!activeSession) {
@@ -110,10 +124,14 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
       return;
     }
 
-    // Load mock attendance
-    const attendance = MOCK_ATTENDANCE.filter(a => a.sessionId === activeSession.sessionId);
-    setLiveAttendance(attendance as (Attendance & { student?: User })[]);
-  }, [activeSession]);
+    // Load attendance from context
+    const sessionAttendance = attendance.filter(a => a.sessionId === activeSession.sessionId);
+    const attendanceWithStudents = sessionAttendance.map(a => ({
+      ...a,
+      student: users.find(u => u.userId === a.studentId)
+    }));
+    setLiveAttendance(attendanceWithStudents);
+  }, [activeSession, attendance, users]);
 
   const handleStartSession = async () => {
     if (!selectedSection) return;
@@ -133,6 +151,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
         status: 'active',
       };
       
+      addSession(newSession);
       setActiveSession(newSession);
     } catch (error) {
       console.error('Failed to start session:', error);
@@ -145,6 +164,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
     if (!activeSession) return;
     setLoading(true);
     try {
+      updateSession(activeSession.sessionId, { status: 'completed' });
       setActiveSession(null);
     } catch (error) {
       console.error('Failed to end session:', error);
@@ -469,37 +489,44 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
         <section className="space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">My Sections</h2>
-            <button className="premium-button py-3 px-6 text-[10px]">Add New Section</button>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {sections.map((section) => (
-              <div key={section.sectionId} className="premium-card p-5 md:p-5 md:p-8 space-y-6">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg md:text-xl font-serif font-bold text-black">{section.courseId}</h3>
-                    <p className="text-sm text-gray-400 font-medium">Section {section.sectionId} • {section.room}</p>
+            {sections.map((section) => {
+              const course = courses.find(c => c.courseId === section.courseId);
+              const enrolledCount = enrollments.filter(e => e.sectionId === section.sectionId).length;
+              return (
+                <div key={section.sectionId} className="premium-card p-5 md:p-5 md:p-8 space-y-6">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg md:text-xl font-serif font-bold text-black">{course?.courseCode} - {course?.title}</h3>
+                      <p className="text-sm text-gray-400 font-medium">Section {section.sectionId.split('-')[1]} • {section.room}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setRosterSectionId(section.sectionId);
+                          setIsRosterModalOpen(true);
+                        }}
+                        className="p-2 hover:bg-premium-cream rounded-lg transition-colors text-premium-gold hover:text-black flex items-center gap-2"
+                        title="View Roster"
+                      >
+                        <Users className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest hidden md:inline">Roster</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="p-2 hover:bg-premium-cream rounded-lg transition-colors text-gray-400 hover:text-black">
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 hover:bg-red-50 rounded-lg transition-colors text-gray-400 hover:text-red-500">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
+                    <div>
+                      <p className="premium-label">Schedule</p>
+                      <p className="text-xs font-bold text-black mt-1">{section.schedule}</p>
+                    </div>
+                    <div>
+                      <p className="premium-label">Students</p>
+                      <p className="text-xs font-bold text-black mt-1">{enrolledCount} Enrolled</p>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50">
-                  <div>
-                    <p className="premium-label">Schedule</p>
-                    <p className="text-xs font-bold text-black mt-1">Mon, Wed • 08:30 AM</p>
-                  </div>
-                  <div>
-                    <p className="premium-label">Students</p>
-                    <p className="text-xs font-bold text-black mt-1">45 Enrolled</p>
-                  </div>
-                </div>
-                {/* Geofence Settings Section */}
-                <div className="mt-6 pt-6 border-t border-gray-50">
+                  {/* Geofence Settings Section */}
+                  <div className="mt-6 pt-6 border-t border-gray-50">
                   <h4 className="text-lg font-bold text-black mb-4">Geofence Settings</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
@@ -542,7 +569,8 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -620,6 +648,90 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
             </div>
           </div>
         </section>
+      )}
+
+      {/* Roster Modal */}
+      {isRosterModalOpen && rosterSectionId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsRosterModalOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-3xl bg-white rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-premium-cream/30 shrink-0">
+              <div>
+                <h3 className="text-2xl font-serif font-bold text-black">Class Roster</h3>
+                <p className="text-sm text-gray-400 font-medium mt-1">
+                  {(() => {
+                    const section = sections.find(s => s.sectionId === rosterSectionId);
+                    const course = courses.find(c => c.courseId === section?.courseId);
+                    return `${course?.courseCode} - Section ${section?.sectionId.split('-')[1]}`;
+                  })()}
+                </p>
+              </div>
+              <button onClick={() => setIsRosterModalOpen(false)} className="p-2 hover:bg-white rounded-xl transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-gray-400"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto p-0">
+              <table className="w-full text-left">
+                <thead className="sticky top-0 bg-white shadow-sm z-10">
+                  <tr className="bg-premium-cream/20">
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Student</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">ID Number</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Department</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {(() => {
+                    const sectionEnrollments = enrollments.filter(e => e.sectionId === rosterSectionId);
+                    const enrolledStudents = sectionEnrollments.map(e => users.find(u => u.userId === e.studentId)).filter(Boolean) as User[];
+                    
+                    if (enrolledStudents.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={3} className="px-8 py-12 text-center text-gray-400 font-medium italic">
+                            No students enrolled in this section yet.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return enrolledStudents.map((student, i) => (
+                      <motion.tr 
+                        key={student.userId}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="hover:bg-premium-cream/10 transition-colors group"
+                      >
+                        <td className="px-8 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-premium-cream rounded-xl flex items-center justify-center text-premium-gold font-bold text-xs shadow-sm">
+                              {student.fullName.charAt(0)}
+                            </div>
+                            <span className="text-sm font-bold text-premium-black">{student.fullName}</span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-4 text-xs font-bold text-gray-400 font-mono whitespace-nowrap">{student.idNumber || 'N/A'}</td>
+                        <td className="px-8 py-4 text-sm text-gray-400 whitespace-nowrap">{student.department}</td>
+                      </motion.tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

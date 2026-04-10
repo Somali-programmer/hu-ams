@@ -8,8 +8,8 @@ import { format } from 'date-fns';
 import { MOCK_SESSIONS, MOCK_ATTENDANCE, MOCK_SECTIONS } from './mockData';
 import AnalyticsCard from './components/AnalyticsCard';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
-
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAppData } from './AppDataContext';
 
 interface StudentDashboardProps {
   view?: 'overview' | 'attendance' | 'schedule';
@@ -18,6 +18,7 @@ interface StudentDashboardProps {
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { sessions, attendance, sections, enrollments, semesters, addAttendance } = useAppData();
   const [activeSessions, setActiveSessions] = useState<(ClassSession & { section?: Section })[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([]);
   const [token, setToken] = useState('');
@@ -25,19 +26,30 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
+  const activeSemester = semesters.find(s => s.isActive);
 
-    // Load mock active sessions
-    const sessionsData = MOCK_SESSIONS.map(session => ({
-      ...session,
-      section: MOCK_SECTIONS.find(s => s.sectionId === session.sectionId)
-    }));
+  useEffect(() => {
+    if (!user || !activeSemester) return;
+
+    // Get sections the student is enrolled in for the active semester
+    const studentEnrollments = enrollments.filter(e => e.studentId === user.userId);
+    const enrolledSectionIds = studentEnrollments.map(e => e.sectionId);
+    const studentSections = sections.filter(s => enrolledSectionIds.includes(s.sectionId) && s.semesterId === activeSemester.semesterId);
+    const studentSectionIds = studentSections.map(s => s.sectionId);
+
+    // Load active sessions for those sections
+    const sessionsData = sessions
+      .filter(session => studentSectionIds.includes(session.sectionId) && session.status === 'active')
+      .map(session => ({
+        ...session,
+        section: studentSections.find(s => s.sectionId === session.sectionId)
+      }));
     setActiveSessions(sessionsData as (ClassSession & { section?: Section })[]);
 
-    // Load mock attendance history
-    setAttendanceHistory(MOCK_ATTENDANCE);
-  }, [user]);
+    // Load attendance history
+    const studentAttendance = attendance.filter(a => a.studentId === user.userId);
+    setAttendanceHistory(studentAttendance);
+  }, [user, sessions, attendance, sections, enrollments, activeSemester]);
 
   const [mockLocation, setMockLocation] = useState(true);
 
@@ -116,7 +128,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         throw new Error('Attendance already marked for this session.');
       }
 
-      // 4. Save Attendance (Mock)
+      // 4. Save Attendance
       const newAttendance: Attendance = {
         attendanceId: `att-${Date.now()}`,
         studentId: user.userId,
@@ -127,7 +139,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         distanceFromCenter: distance,
       };
 
-      setAttendanceHistory(prev => [newAttendance, ...prev]);
+      addAttendance(newAttendance);
       setSuccess('Attendance marked successfully! You are recorded as PRESENT.');
       setToken('');
     } catch (err: any) {

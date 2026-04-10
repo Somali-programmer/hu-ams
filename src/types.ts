@@ -25,11 +25,28 @@ export interface Course {
   department: string;
 }
 
+export interface Semester {
+  semesterId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+}
+
+export interface Enrollment {
+  enrollmentId: string;
+  studentId: string;
+  sectionId: string;
+  enrolledAt: string;
+}
+
 export interface Section {
   sectionId: string;
   courseId: string;
   instructorId: string;
+  semesterId: string;
   room: string;
+  schedule: string;
   geofenceCenter: {
     latitude: number;
     longitude: number;

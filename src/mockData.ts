@@ -1,4 +1,4 @@
-import { User, Course, Section, ClassSession, Attendance } from './types';
+import { User, Course, Section, ClassSession, Attendance, Semester, Enrollment } from './types';
 
 export const MOCK_USERS: User[] = [
   // Instructors
@@ -244,12 +244,31 @@ export const MOCK_COURSES: Course[] = [
   },
 ];
 
+export const MOCK_SEMESTERS: Semester[] = [
+  {
+    semesterId: 'sem-1',
+    name: 'Fall 2026',
+    startDate: '2026-09-01',
+    endDate: '2027-01-15',
+    isActive: true,
+  },
+  {
+    semesterId: 'sem-2',
+    name: 'Spring 2027',
+    startDate: '2027-02-01',
+    endDate: '2027-06-15',
+    isActive: false,
+  }
+];
+
 export const MOCK_SECTIONS: Section[] = [
   {
     sectionId: 'section-1',
     courseId: 'course-1',
     instructorId: 'inst-1',
+    semesterId: 'sem-1',
     room: 'Block 24, Room 102',
+    schedule: 'Mon, Wed • 08:30 AM',
     geofenceCenter: { latitude: 9.412, longitude: 42.035 },
     geofenceRadius: 50,
   },
@@ -257,7 +276,9 @@ export const MOCK_SECTIONS: Section[] = [
     sectionId: 'section-2',
     courseId: 'course-2',
     instructorId: 'inst-2',
+    semesterId: 'sem-1',
     room: 'Block 24, Room 205',
+    schedule: 'Tue, Thu • 10:00 AM',
     geofenceCenter: { latitude: 9.412, longitude: 42.035 },
     geofenceRadius: 50,
   },
@@ -265,10 +286,22 @@ export const MOCK_SECTIONS: Section[] = [
     sectionId: 'section-3',
     courseId: 'course-3',
     instructorId: 'inst-3',
+    semesterId: 'sem-1',
     room: 'Block 24, Room 301',
+    schedule: 'Fri • 02:00 PM',
     geofenceCenter: { latitude: 9.412, longitude: 42.035 },
     geofenceRadius: 50,
   },
+];
+
+export const MOCK_ENROLLMENTS: Enrollment[] = [
+  { enrollmentId: 'enr-1', studentId: 'std-1', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
+  { enrollmentId: 'enr-2', studentId: 'std-2', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
+  { enrollmentId: 'enr-3', studentId: 'std-3', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
+  { enrollmentId: 'enr-4', studentId: 'std-4', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
+  { enrollmentId: 'enr-5', studentId: 'std-5', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
+  { enrollmentId: 'enr-6', studentId: 'std-1', sectionId: 'section-2', enrolledAt: new Date().toISOString() },
+  { enrollmentId: 'enr-7', studentId: 'std-2', sectionId: 'section-2', enrolledAt: new Date().toISOString() },
 ];
 
 export const MOCK_SESSIONS: ClassSession[] = [

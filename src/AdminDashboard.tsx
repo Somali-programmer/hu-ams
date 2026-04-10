@@ -32,17 +32,20 @@ import AnalyticsCard from './components/AnalyticsCard';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, PieChart, Pie } from 'recharts';
 
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAppData } from './AppDataContext';
 
 interface AdminDashboardProps {
-  view?: 'overview' | 'staff' | 'students' | 'courses' | 'settings';
+  view?: 'overview' | 'staff' | 'students' | 'courses' | 'sections' | 'semesters' | 'settings';
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) => {
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
-  const [users, setUsers] = useState<User[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
+  const { 
+    users, courses, sections, semesters, 
+    addSemester, setActiveSemester, addSection,
+    addUser, updateUser, deleteUser, addCourse, updateCourse, deleteCourse 
+  } = useAppData();
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -57,8 +60,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
   // Modal States
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
+  const [isSectionModalOpen, setIsSectionModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
 
   // Form States
   const [userForm, setUserForm] = useState<Partial<User>>({
@@ -77,16 +82,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     department: 'Computer Science'
   });
 
-  useEffect(() => {
-    setUsers(MOCK_USERS);
-    setCourses(MOCK_COURSES);
-    setSections(MOCK_SECTIONS);
-  }, []);
+  const [sectionForm, setSectionForm] = useState<Partial<Section>>({
+    courseId: '',
+    instructorId: '',
+    room: '',
+    schedule: ''
+  });
 
   const handleSaveUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingUser) {
-      setUsers(prev => prev.map(u => u.userId === editingUser.userId ? { ...u, ...userForm } as User : u));
+      updateUser(editingUser.userId, userForm);
     } else {
       const newUser: User = {
         ...userForm,
@@ -94,7 +100,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
         createdAt: new Date().toISOString(),
         isActive: true
       } as User;
-      setUsers(prev => [newUser, ...prev]);
+      addUser(newUser);
     }
     setIsUserModalOpen(false);
     setEditingUser(null);
@@ -103,20 +109,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
 
   const handleDeleteUser = (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(prev => prev.filter(u => u.userId !== userId));
+      deleteUser(userId);
     }
   };
 
   const handleSaveCourse = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingCourse) {
-      setCourses(prev => prev.map(c => c.courseId === editingCourse.courseId ? { ...c, ...courseForm } as Course : c));
+      updateCourse(editingCourse.courseId, courseForm);
     } else {
       const newCourse: Course = {
         ...courseForm,
         courseId: `course-${Date.now()}`
       } as Course;
-      setCourses(prev => [newCourse, ...prev]);
+      addCourse(newCourse);
     }
     setIsCourseModalOpen(false);
     setEditingCourse(null);
@@ -125,7 +131,38 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
 
   const handleDeleteCourse = (courseId: string) => {
     if (window.confirm('Are you sure you want to delete this course?')) {
-      setCourses(prev => prev.filter(c => c.courseId !== courseId));
+      deleteCourse(courseId);
+    }
+  };
+
+  const handleSaveSection = (e: React.FormEvent) => {
+    e.preventDefault();
+    const activeSemester = semesters.find(s => s.isActive);
+    if (!activeSemester) {
+      alert('Please set an active semester first.');
+      return;
+    }
+
+    if (editingSection) {
+      updateSection(editingSection.sectionId, sectionForm);
+    } else {
+      const newSection: Section = {
+        ...sectionForm,
+        sectionId: `section-${Date.now()}`,
+        semesterId: activeSemester.semesterId,
+        geofenceCenter: { latitude: 0, longitude: 0 }, // Default, instructor sets this
+        geofenceRadius: 50
+      } as Section;
+      addSection(newSection);
+    }
+    setIsSectionModalOpen(false);
+    setEditingSection(null);
+    setSectionForm({ courseId: '', instructorId: '', room: '', schedule: '' });
+  };
+
+  const handleDeleteSection = (sectionId: string) => {
+    if (window.confirm('Are you sure you want to delete this section assignment?')) {
+      deleteSection(sectionId);
     }
   };
 
@@ -256,7 +293,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
           {/* Quick Actions Grid */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
+              { title: 'Semesters', desc: 'Manage academic terms and active semesters.', icon: Calendar, color: 'text-orange-500', bg: 'bg-orange-50', path: '/admin/semesters' },
               { title: 'Course Catalog', desc: 'Architect the academic curriculum and course structures.', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50', path: '/admin/courses' },
+              { title: 'Section Assignments', desc: 'Assign courses to instructors and set schedules.', icon: LayoutDashboard, color: 'text-indigo-500', bg: 'bg-indigo-50', path: '/admin/sections' },
               { title: 'Staff Management', desc: 'Manage instructors and administrative staff.', icon: Briefcase, color: 'text-purple-500', bg: 'bg-purple-50', path: '/admin/staff' },
               { title: 'Student Management', desc: 'Manage student enrollment and records.', icon: GraduationCap, color: 'text-green-500', bg: 'bg-green-50', path: '/admin/students' },
               { title: 'System Backup', desc: 'Securely archive all system data and configurations.', icon: Database, color: 'text-premium-gold', bg: 'bg-premium-cream', action: handleBackup }
@@ -493,6 +532,148 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       </td>
                     </motion.tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {view === 'semesters' && (
+        <section className="space-y-6 md:space-y-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Academic Semesters</h2>
+            <button className="premium-button flex items-center gap-3">
+              <Plus className="w-5 h-5" />
+              <span className="text-xs uppercase tracking-widest">Add Semester</span>
+            </button>
+          </div>
+
+          <div className="premium-card overflow-hidden border-none">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[800px]">
+                <thead>
+                  <tr className="bg-premium-cream/20">
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Name</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Start Date</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">End Date</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Status</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {semesters.map((s, i) => (
+                    <motion.tr 
+                      key={s.semesterId}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="hover:bg-premium-cream/10 transition-colors group"
+                    >
+                      <td className="px-8 py-6 text-sm font-bold text-black whitespace-nowrap">{s.name}</td>
+                      <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{s.startDate}</td>
+                      <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{s.endDate}</td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        {s.isActive ? (
+                          <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-widest">Active</span>
+                        ) : (
+                          <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-bold uppercase tracking-widest">Inactive</span>
+                        )}
+                      </td>
+                      <td className="px-8 py-6 whitespace-nowrap">
+                        {!s.isActive && (
+                          <button 
+                            onClick={() => {
+                              if (window.confirm('Warning: This will archive all current active sections and update the default view for all Instructors and Students. Proceed?')) {
+                                setActiveSemester(s.semesterId);
+                              }
+                            }}
+                            className="text-xs font-bold text-premium-gold hover:text-premium-black uppercase tracking-widest transition-colors"
+                          >
+                            Set Active
+                          </button>
+                        )}
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {view === 'sections' && (
+        <section className="space-y-6 md:space-y-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Section Assignments</h2>
+            <button 
+              onClick={() => {
+                setEditingSection(null);
+                setSectionForm({ courseId: '', instructorId: '', room: '', schedule: '' });
+                setIsSectionModalOpen(true);
+              }}
+              className="premium-button flex items-center gap-3"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="text-xs uppercase tracking-widest">Assign Section</span>
+            </button>
+          </div>
+
+          <div className="premium-card overflow-hidden border-none">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[800px]">
+                <thead>
+                  <tr className="bg-premium-cream/20">
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Course</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Instructor</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Room</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Schedule</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {sections.map((s, i) => {
+                    const course = courses.find(c => c.courseId === s.courseId);
+                    const instructor = users.find(u => u.userId === s.instructorId);
+                    return (
+                      <motion.tr 
+                        key={s.sectionId}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        className="hover:bg-premium-cream/10 transition-colors group"
+                      >
+                        <td className="px-8 py-6 whitespace-nowrap">
+                          <p className="text-sm font-bold text-black">{course?.courseCode}</p>
+                          <p className="text-xs text-gray-400 mt-1">{course?.title}</p>
+                        </td>
+                        <td className="px-8 py-6 text-sm font-bold text-black whitespace-nowrap">{instructor?.fullName}</td>
+                        <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{s.room}</td>
+                        <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{s.schedule}</td>
+                        <td className="px-8 py-6 whitespace-nowrap">
+                          <div className="flex items-center gap-4">
+                            <button 
+                              onClick={() => {
+                                setEditingSection(s);
+                                setSectionForm(s);
+                                setIsSectionModalOpen(true);
+                              }}
+                              className="p-2 text-gray-300 hover:text-premium-gold transition-colors"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteSection(s.sectionId)}
+                              className="p-2 text-gray-300 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -771,6 +952,104 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     className="flex-1 py-4 bg-premium-black text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-premium-gold transition-all shadow-xl shadow-premium-black/20"
                   >
                     {editingCourse ? 'Update Course' : 'Create Course'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Section Modal */}
+      <AnimatePresence>
+        {isSectionModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSectionModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-premium-cream/30">
+                <h3 className="text-2xl font-serif font-bold text-black">
+                  {editingSection ? 'Edit Section Assignment' : 'Assign New Section'}
+                </h3>
+                <button onClick={() => setIsSectionModalOpen(false)} className="p-2 hover:bg-white rounded-xl transition-all">
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
+              </div>
+              <form onSubmit={handleSaveSection} className="p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Course</label>
+                    <select
+                      required
+                      value={sectionForm.courseId}
+                      onChange={(e) => setSectionForm({ ...sectionForm, courseId: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all appearance-none"
+                    >
+                      <option value="">Select Course</option>
+                      {courses.map(c => (
+                        <option key={c.courseId} value={c.courseId}>{c.courseCode} - {c.title}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Instructor</label>
+                    <select
+                      required
+                      value={sectionForm.instructorId}
+                      onChange={(e) => setSectionForm({ ...sectionForm, instructorId: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all appearance-none"
+                    >
+                      <option value="">Select Instructor</option>
+                      {users.filter(u => u.role === 'instructor').map(u => (
+                        <option key={u.userId} value={u.userId}>{u.fullName}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Room</label>
+                    <input
+                      required
+                      type="text"
+                      value={sectionForm.room}
+                      onChange={(e) => setSectionForm({ ...sectionForm, room: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      placeholder="e.g. Block 24, Room 102"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Schedule</label>
+                    <input
+                      required
+                      type="text"
+                      value={sectionForm.schedule}
+                      onChange={(e) => setSectionForm({ ...sectionForm, schedule: e.target.value })}
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      placeholder="e.g. Mon, Wed • 08:30 AM"
+                    />
+                  </div>
+                </div>
+                <div className="pt-4 flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsSectionModalOpen(false)}
+                    className="flex-1 py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-gray-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-4 bg-premium-black text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-premium-gold transition-all shadow-xl shadow-premium-black/20"
+                  >
+                    {editingSection ? 'Update Section' : 'Assign Section'}
                   </button>
                 </div>
               </form>
