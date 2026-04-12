@@ -13,9 +13,9 @@ export const MOCK_USERS: User[] = [
   },
   {
     userId: 'inst-2',
-    email: 'wabi.j@haramaya.edu.et',
+    email: 'Alemu.G@haramaya.edu.et',
     role: 'instructor',
-    fullName: 'Wabi J.',
+    fullName: 'Alemu gudeta.',
     department: 'Computer Science',
     createdAt: new Date().toISOString(),
     isActive: true,
@@ -40,9 +40,9 @@ export const MOCK_USERS: User[] = [
   },
   {
     userId: 'inst-5',
-    email: 'abebe.k@haramaya.edu.et',
+    email: 'Wabi.J@haramaya.edu.et',
     role: 'instructor',
-    fullName: 'Dr. Abebe Kebede',
+    fullName: 'Wabi J',
     department: 'Computer Science',
     createdAt: new Date().toISOString(),
     isActive: true,
@@ -100,7 +100,7 @@ export const MOCK_USERS: User[] = [
   },
   {
     userId: 'std-6',
-    idNumber: '0331/15',
+    idNumber: '0318/15',
     email: 'mawlid.mahamed@haramaya.edu.et',
     role: 'student',
     fullName: 'Mawlid Mahamed Abdi',
