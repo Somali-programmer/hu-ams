@@ -83,6 +83,7 @@ export default function App() {
               <Route path="/instructor/sessions" element={<ProtectedRoute><Layout><InstructorDashboard view="sessions" /></Layout></ProtectedRoute>} />
               <Route path="/instructor/sections" element={<ProtectedRoute><Layout><InstructorDashboard view="sections" /></Layout></ProtectedRoute>} />
               <Route path="/instructor/reports" element={<ProtectedRoute><Layout><InstructorDashboard view="reports" /></Layout></ProtectedRoute>} />
+              <Route path="/instructor/history" element={<ProtectedRoute><Layout><InstructorDashboard view="history" /></Layout></ProtectedRoute>} />
               
               {/* QA Routes */}
               <Route path="/qa/audit" element={<ProtectedRoute><Layout><QAOfficerDashboard view="audit" /></Layout></ProtectedRoute>} />

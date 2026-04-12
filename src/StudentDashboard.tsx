@@ -3,12 +3,11 @@ import { useAuth } from './AuthContext';
 import { ClassSession, Attendance, Section } from './types';
 import { calculateDistance, cn } from './lib/utils';
 import { motion } from 'motion/react';
-import { MapPin, ShieldCheck, Clock, CheckCircle2, AlertCircle, TrendingUp, CalendarDays, Download, Calendar, Play } from 'lucide-react';
+import { MapPin, Clock, CheckCircle2, AlertCircle, TrendingUp, CalendarDays, Download, Calendar, FileText } from 'lucide-react';
 import { format } from 'date-fns';
-import { MOCK_SESSIONS, MOCK_ATTENDANCE, MOCK_SECTIONS } from './mockData';
 import AnalyticsCard from './components/AnalyticsCard';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAppData } from './AppDataContext';
 
 interface StudentDashboardProps {
@@ -154,13 +153,13 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 md:p-6">
         <div className="text-left">
-          <p className="premium-label">Student Portal</p>
+          <p className="hu-label">Student Portal</p>
           <h1 className="text-3xl md:text-5xl font-serif font-bold text-black tracking-tight">
             Welcome back, <span className="text-gray-black/40 italic">{user?.fullName?.split(' ')[0]}</span>
           </h1>
           {user?.idNumber && (
             <div className="mt-2 flex items-center gap-2">
-              <span className="px-3 py-1 bg-premium-black/10 text-premium-black rounded-full text-[10px] font-bold uppercase tracking-widest border border-premium-black/10">
+              <span className="px-3 py-1 bg-hu-green/10 text-hu-green rounded-full text-[10px] font-bold uppercase tracking-widest border border-hu-green/10">
                 ID: {user.idNumber}
               </span>
             </div>
@@ -170,12 +169,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         <div className="flex items-center gap-4">
           <button 
             onClick={handleDownloadReport}
-            className="px-6 py-3 bg-white border border-gray-100 text-black rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-premium-black hover:text-white transition-all flex items-center gap-3 shadow-sm"
+            className="px-6 py-3 bg-white border border-gray-100 text-black rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-hu-green hover:text-white transition-all flex items-center gap-3 shadow-sm"
           >
-            <Download className="w-4 h-4" /> Report
+            <FileText className="w-4 h-4 text-hu-green group-hover:text-white" /> Report
           </button>
           {/* Testing Mode Toggle */}
-          <div className="bg-premium-black text-white px-6 py-3 rounded-2xl flex items-center gap-4 shadow-2xl shadow-premium-black/10 border border-white/10">
+          <div className="bg-hu-green text-white px-6 py-3 rounded-2xl flex items-center gap-4 shadow-2xl shadow-hu-green/10 border border-white/10">
             <label className="flex items-center gap-3 cursor-pointer group">
               <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/60 group-hover:text-white transition-colors">Mock GPS</span>
               <div className="relative inline-flex items-center cursor-pointer">
@@ -214,25 +213,25 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
           )}
 
           {/* Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
             {[
-              { label: 'Overall Attendance', value: `${attendancePercentage}%`, icon: TrendingUp, color: isAtRisk ? 'text-red-500' : 'text-premium-black', bg: isAtRisk ? 'bg-red-50' : 'bg-premium-black/10' },
-              { label: 'Sessions Attended', value: attendanceHistory.length, icon: CheckCircle2, color: 'text-black', bg: 'bg-gray-50' },
-              { label: 'Active Sessions', value: activeSessions.length, icon: CalendarDays, color: 'text-premium-black', bg: 'bg-premium-black/10' }
+              { label: 'Overall Attendance', value: `${attendancePercentage}%`, icon: TrendingUp, color: isAtRisk ? 'text-red-500' : 'text-hu-green', bg: isAtRisk ? 'bg-red-50' : 'bg-hu-green/10' },
+              { label: 'Sessions Attended', value: attendanceHistory.length, icon: CheckCircle2, color: 'text-hu-charcoal', bg: 'bg-gray-50' },
+              { label: 'Active Sessions', value: activeSessions.length, icon: CalendarDays, color: 'text-hu-green', bg: 'bg-hu-green/10' }
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="premium-card p-5 md:p-8 flex items-center gap-6"
+                className="hu-card p-5 md:p-8 flex items-center gap-6"
               >
                 <div className={cn("w-10 h-10 md:w-12 md:h-12 md:w-16 md:h-16 rounded-3xl flex items-center justify-center shadow-inner", stat.bg)}>
                   <stat.icon className={cn("w-6 h-6 md:w-8 md:h-8", stat.color)} />
                 </div>
                 <div>
-                  <p className="premium-label mb-1">{stat.label}</p>
-                  <p className="text-2xl md:text-4xl font-serif font-bold text-black">{stat.value}</p>
+                  <p className="hu-label mb-1">{stat.label}</p>
+                  <p className="text-2xl md:text-4xl font-serif font-bold text-hu-charcoal">{stat.value}</p>
                 </div>
               </motion.div>
             ))}
@@ -285,22 +284,22 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
           </div>
 
           {/* Quick Actions Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+          <section className="grid grid-cols-2 md:grid-cols-2 gap-4 md:gap-8">
             {[
-              { title: 'My Attendance', desc: 'View your detailed attendance history.', icon: CheckCircle2, color: 'text-blue-500', bg: 'bg-blue-50', path: '/student/attendance' },
-              { title: 'Class Schedule', desc: 'View upcoming classes and active sessions.', icon: Calendar, color: 'text-purple-500', bg: 'bg-purple-50', path: '/student/schedule' }
+              { title: 'My Attendance', desc: 'View your detailed attendance history.', icon: CheckCircle2, color: 'text-hu-blue', bg: 'bg-hu-blue/5', path: '/student/attendance' },
+              { title: 'Class Schedule', desc: 'View upcoming classes and active sessions.', icon: Calendar, color: 'text-hu-green', bg: 'bg-hu-green/5', path: '/student/schedule' }
             ].map((action) => (
-              <div key={action.title} className="premium-card p-6 md:p-10 space-y-6 border-none">
+              <div key={action.title} className="hu-card p-6 md:p-10 space-y-6 border-none">
                 <div className="flex items-center gap-4">
                   <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shadow-inner", action.bg, action.color)}>
                     <action.icon className="w-6 h-6" />
                   </div>
-                  <h3 className="font-serif font-bold text-xl md:text-2xl text-black">{action.title}</h3>
+                  <h3 className="font-serif font-bold text-xl md:text-2xl text-hu-charcoal">{action.title}</h3>
                 </div>
                 <p className="text-sm text-gray-400 font-medium leading-relaxed">{action.desc}</p>
                 <button 
                   onClick={() => navigate(action.path)}
-                  className="w-full py-4 bg-premium-black/10 hover:bg-premium-black hover:text-white text-black rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300"
+                  className="w-full py-4 bg-hu-green/10 hover:bg-hu-green hover:text-white text-hu-green rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300"
                 >
                   View {action.title.split(' ')[1]}
                 </button>
@@ -316,14 +315,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
           <section className="space-y-6 md:space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Live Sessions</h2>
-            <span className="px-3 py-1 bg-green-50 text-green-600 rounded-full text-[10px] font-bold uppercase tracking-widest border border-green-100">
+            <span className="px-3 py-1 bg-hu-green/10 text-hu-green rounded-full text-[10px] font-bold uppercase tracking-widest border border-hu-green/10">
               {activeSessions.length} Active
             </span>
           </div>
           
           <div className="space-y-6">
             {activeSessions.length === 0 ? (
-              <div className="premium-card p-8 md:p-12 text-center space-y-4 border-dashed border-2 border-gray-100 bg-transparent">
+              <div className="hu-card-alt p-8 md:p-12 text-center space-y-4 border-dashed border-2 border-gray-100 bg-transparent">
                 <Clock className="w-12 h-12 text-gray-200 mx-auto" />
                 <p className="text-gray-400 font-medium">No live sessions currently in progress.</p>
               </div>
@@ -331,14 +330,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
               activeSessions.map((session) => (
                 <motion.div 
                   key={session.sessionId}
-                  className="premium-card p-5 md:p-8 space-y-8"
+                  className="hu-card-alt p-5 md:p-8 space-y-8"
                 >
                   <div className="flex justify-between items-start">
                     <div className="space-y-1">
                       <h3 className="text-lg md:text-xl font-serif font-bold text-black">{session.section?.courseId}</h3>
                       <p className="text-sm text-gray-400 font-medium">Section {session.section?.sectionId}</p>
                     </div>
-                    <div className="flex items-center gap-2 text-premium-black">
+                    <div className="flex items-center gap-2 text-hu-green">
                       <MapPin className="w-4 h-4" />
                       <span className="text-[10px] font-bold uppercase tracking-widest">In Geofence</span>
                     </div>
@@ -353,12 +352,12 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                         value={token}
                         onChange={(e) => setToken(e.target.value.toUpperCase())}
                         placeholder="ENTER CODE"
-                        className="flex-1 bg-premium-cream/30 border-none rounded-2xl px-6 py-4 text-lg font-mono font-bold tracking-[0.5em] focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all placeholder:tracking-normal placeholder:text-xs placeholder:font-sans"
+                        className="flex-1 bg-hu-cream/30 border-none rounded-2xl px-6 py-4 text-lg font-mono font-bold tracking-[0.5em] focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all placeholder:tracking-normal placeholder:text-xs placeholder:font-sans"
                       />
                       <button 
                         onClick={() => handleMarkAttendance(session)}
                         disabled={loading || !token}
-                        className="premium-button px-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="hu-button-rounded px-8 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {loading ? '...' : 'Mark Presence'}
                       </button>
@@ -371,7 +370,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                     </div>
                   )}
                   {success && (
-                    <div className="p-4 bg-premium-black/10 text-premium-black rounded-xl text-xs font-bold flex items-center gap-3">
+                    <div className="p-4 bg-hu-green/10 text-hu-green rounded-xl text-xs font-bold flex items-center gap-3">
                       <CheckCircle2 className="w-4 h-4" /> {success}
                     </div>
                   )}
@@ -385,10 +384,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         <section className="space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Class Schedule</h2>
-            <button className="text-[10px] font-bold uppercase tracking-widest text-premium-black">Full Calendar</button>
+            <button className="text-[10px] font-bold uppercase tracking-widest text-hu-green">Full Calendar</button>
           </div>
 
-          <div className="premium-card p-0 overflow-hidden border-none">
+          <div className="hu-card-alt p-0 overflow-hidden border-none">
             <div className="divide-y divide-gray-50">
               {[
                 { day: 'Monday', time: '08:30 AM - 10:30 AM', course: 'Distributed Systems', code: 'CoSc4038', room: 'Lab 04' },
@@ -396,9 +395,9 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                 { day: 'Wednesday', time: '02:00 PM - 04:00 PM', course: 'Software Engineering II', code: 'CoSc4032', room: 'Lab 02' },
                 { day: 'Thursday', time: '08:30 AM - 10:30 AM', course: 'Database Systems', code: 'CoSc301', room: 'Room 105' }
               ].map((item, i) => (
-                <div key={i} className="p-6 flex items-center justify-between hover:bg-premium-cream/10 transition-colors">
+                <div key={i} className="p-6 flex items-center justify-between hover:bg-hu-cream/10 transition-colors">
                   <div className="flex items-center gap-6">
-                    <div className="w-12 h-12 bg-premium-cream rounded-2xl flex flex-col items-center justify-center text-premium-black">
+                    <div className="w-12 h-12 bg-hu-cream rounded-2xl flex flex-col items-center justify-center text-hu-green">
                       <span className="text-[8px] font-bold uppercase">{item.day.substring(0, 3)}</span>
                       <Calendar className="w-4 h-4" />
                     </div>
@@ -419,14 +418,14 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         <section className="space-y-6 md:space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Attendance History</h2>
-            <button className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-premium-black hover:text-black transition-colors">View All Records</button>
+            <button className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-hu-green hover:text-black transition-colors">View All Records</button>
           </div>
           
-          <div className="premium-card overflow-hidden border-none">
+          <div className="hu-card-alt overflow-hidden border-none">
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[600px]">
                 <thead>
-                  <tr className="bg-premium-cream/30">
+                  <tr className="bg-hu-cream/30">
                     <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Date</th>
                     <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Course</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Status</th>
@@ -438,10 +437,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                     <tr>
                       <td colSpan={4} className="px-8 py-20 text-center whitespace-nowrap">
                         <div className="max-w-xs mx-auto space-y-4">
-                          <div className="w-12 h-12 md:w-16 md:h-16 bg-premium-cream rounded-full flex items-center justify-center mx-auto text-premium-gold">
+                          <div className="w-12 h-12 md:w-16 md:h-16 bg-hu-cream rounded-full flex items-center justify-center mx-auto text-hu-gold">
                             <AlertCircle className="w-8 h-8" />
                           </div>
-                          <p className="text-gray-400 font-medium">No attendance records found in the premium archive.</p>
+                          <p className="text-gray-400 font-medium">No attendance records found in the localized archive.</p>
                         </div>
                       </td>
                     </tr>
@@ -452,7 +451,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.05 }}
-                        className="hover:bg-premium-cream/20 transition-colors group"
+                        className="hover:bg-hu-cream/20 transition-colors group"
                       >
                         <td className="px-8 py-6 whitespace-nowrap">
                           <p className="text-sm font-bold text-black">
@@ -469,10 +468,10 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                           <span className={cn(
                             "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest inline-flex items-center gap-2",
                             record.status === 'present' 
-                              ? "bg-premium-black/10 text-premium-black border border-premium-black/20" 
+                              ? "bg-hu-green/10 text-hu-green border border-hu-green/20" 
                               : "bg-red-50 text-red-600 border border-red-100"
                           )}>
-                            <div className={cn("w-1.5 h-1.5 rounded-full", record.status === 'present' ? "bg-premium-black" : "bg-red-600")} />
+                            <div className={cn("w-1.5 h-1.5 rounded-full", record.status === 'present' ? "bg-hu-green" : "bg-red-600")} />
                             {record.status}
                           </span>
                         </td>

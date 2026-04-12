@@ -5,18 +5,76 @@
   --font-serif: "Cormorant Garamond", serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   
-  --color-premium-gold: #FFB81C; /* Haramaya Gold */
-  --color-premium-black: #32CD32; /* LimeGreen */
-  --color-premium-blue: #005696; /* Haramaya Blue */
-  --color-premium-white: #fcfcfc;
-  --color-premium-cream: #f5f2ed;
-  --color-vibrant-green: #32CD32;
+  /* Haramaya University Brand Colors */
+  --color-hu-gold: #FFB81C;
+  --color-hu-green: #32CD32; /* LimeGreen */
+  --color-hu-blue: #005696;
+  --color-hu-cream: #FDFBF7;
+  --color-hu-charcoal: #1A1A1A;
+
+  /* Legacy support for existing components */
+  --color-hu-white: #fcfcfc;
   --color-gray-black: #333333;
+
+  /* HU Elevation Scale - Using LimeGreen #32CD32 for shadows */
+  --shadow-hu-elevate-1: 0 2px 4px rgba(50, 205, 50, 0.1), 0 1px 2px rgba(50, 205, 50, 0.05);
+  --shadow-hu-elevate-2: 0 10px 15px -3px rgba(50, 205, 50, 0.15), 0 4px 6px -2px rgba(50, 205, 50, 0.08);
+  --shadow-hu-elevate-3: 0 20px 25px -5px rgba(50, 205, 50, 0.2), 0 10px 10px -5px rgba(50, 205, 50, 0.1);
+  --shadow-hu-elevate-4: 0 25px 50px -12px rgba(50, 205, 50, 0.25);
+}
+
+@layer components {
+  /* HU Localized Design System */
+  .hu-card {
+    @apply bg-white border border-gray-100 rounded-[24px] shadow-hu-elevate-2 transition-all duration-300 hover:shadow-hu-elevate-3;
+  }
+
+  .hu-card-alt {
+    @apply bg-white border border-gray-100 rounded-[20px] md:rounded-[32px] shadow-[0_8px_30px_rgba(50,205,50,0.1)] transition-all duration-500 hover:shadow-[0_20px_40px_rgba(50,205,50,0.2)];
+  }
+
+  .hu-button {
+    @apply px-6 py-3 bg-hu-green text-white rounded-xl font-bold transition-all duration-300 hover:bg-hu-blue hover:shadow-hu-elevate-2 active:scale-[0.98] flex items-center justify-center gap-2;
+  }
+
+  .hu-button-gold {
+    @apply px-6 py-3 bg-hu-gold text-hu-charcoal rounded-xl font-bold transition-all duration-300 hover:brightness-110 hover:shadow-hu-elevate-2 active:scale-[0.98] flex items-center justify-center gap-2;
+  }
+
+  .hu-button-rounded {
+    @apply px-6 py-3 md:px-8 md:py-4 text-sm md:text-base bg-hu-green text-white rounded-full font-bold transition-all duration-300 hover:bg-hu-blue hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-hu-green/20;
+  }
+
+  .hu-glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-hu-elevate-1;
+  }
+
+  .hu-input {
+    @apply w-full px-5 py-3 bg-hu-cream border border-gray-200 rounded-xl focus:bg-white focus:border-hu-green focus:ring-2 focus:ring-hu-green/10 outline-none transition-all duration-200;
+  }
+
+  .hu-input-rounded {
+    @apply w-full px-4 py-3 md:px-6 md:py-4 text-sm md:text-base bg-hu-cream/50 border border-transparent rounded-xl md:rounded-2xl focus:bg-white focus:border-hu-gold focus:ring-0 outline-none transition-all duration-300;
+  }
+
+  .hu-label {
+    @apply text-[10px] md:text-[11px] uppercase tracking-[0.2em] font-bold text-hu-charcoal mb-1 md:mb-2 block opacity-70;
+  }
+
+  .hu-gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-hu-green to-hu-gold;
+  }
+
+  /* Elevation Utilities */
+  .hu-elevate-1 { @apply shadow-hu-elevate-1; }
+  .hu-elevate-2 { @apply shadow-hu-elevate-2; }
+  .hu-elevate-3 { @apply shadow-hu-elevate-3; }
+  .hu-elevate-4 { @apply shadow-hu-elevate-4; }
 }
 
 @layer base {
   body {
-    @apply font-sans bg-premium-white text-gray-900 antialiased text-[14px] md:text-[16px];
+    @apply font-sans bg-hu-white text-gray-900 antialiased text-[14px] md:text-[16px];
   }
   
   h1 {
@@ -30,24 +88,4 @@
   h3 {
     @apply font-serif text-lg md:text-2xl text-black;
   }
-}
-
-.premium-card {
-  @apply bg-white border border-gray-100 rounded-[20px] md:rounded-[32px] shadow-[0_8px_30px_rgba(50,205,50,0.06)] transition-all duration-500 hover:shadow-[0_20px_40px_rgba(50,205,50,0.12)];
-}
-
-.premium-button {
-  @apply px-6 py-3 md:px-8 md:py-4 text-sm md:text-base bg-premium-black text-white rounded-full font-bold transition-all duration-300 hover:bg-premium-blue hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-premium-black/20;
-}
-
-.premium-input {
-  @apply w-full px-4 py-3 md:px-6 md:py-4 text-sm md:text-base bg-premium-cream/50 border border-transparent rounded-xl md:rounded-2xl focus:bg-white focus:border-premium-gold focus:ring-0 outline-none transition-all duration-300;
-}
-
-.premium-label {
-  @apply text-[10px] md:text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black mb-1 md:mb-2 block opacity-70;
-}
-
-.premium-gradient-text {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-premium-black to-premium-gold;
 }

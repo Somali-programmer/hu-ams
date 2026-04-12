@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
 import { User, Course, Section, UserRole } from './types';
 import { cn } from './lib/utils';
@@ -10,13 +10,10 @@ import {
   Settings, 
   ShieldCheck, 
   Database, 
-  RefreshCw, 
   Search, 
-  Filter, 
   Trash2, 
   Edit2, 
   CheckCircle2, 
-  AlertCircle,
   X,
   LayoutDashboard,
   GraduationCap,
@@ -24,14 +21,12 @@ import {
   Download,
   Calendar,
   Lock,
-  FileText,
-  Activity
+  FileText
 } from 'lucide-react';
-import { MOCK_USERS, MOCK_COURSES, MOCK_SECTIONS } from './mockData';
 import AnalyticsCard from './components/AnalyticsCard';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, PieChart, Pie } from 'recharts';
 
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAppData } from './AppDataContext';
 
 interface AdminDashboardProps {
@@ -43,7 +38,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
   const navigate = useNavigate();
   const { 
     users, courses, sections, semesters, 
-    addSemester, setActiveSemester, addSection,
+    addSemester, setActiveSemester, addSection, updateSection, deleteSection,
     addUser, updateUser, deleteUser, addCourse, updateCourse, deleteCourse 
   } = useAppData();
   const [loading, setLoading] = useState(false);
@@ -210,7 +205,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-4 md:gap-8">
         <div className="text-left">
-          <p className="premium-label">Administrative Portal</p>
+          <p className="hu-label">Administrative Portal</p>
           <h1 className="text-3xl md:text-5xl font-serif font-bold text-black tracking-tight">
             System <span className="text-gray-black/40 italic">Architecture</span>
           </h1>
@@ -224,25 +219,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
       {view === 'overview' && (
         <>
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
             {[
-              { label: 'Total Users', value: users.length, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
-              { label: 'Active Courses', value: courses.length, icon: BookOpen, color: 'text-premium-black', bg: 'bg-premium-black/10' },
-              { label: 'Total Sections', value: sections.length, icon: Database, color: 'text-premium-black', bg: 'bg-premium-black/10' },
-              { label: 'System Status', value: 'Operational', icon: ShieldCheck, color: 'text-premium-black', bg: 'bg-premium-black/10' }
+              { label: 'Total Users', value: users.length, icon: Users, color: 'text-hu-blue', bg: 'bg-hu-blue/10' },
+              { label: 'Active Courses', value: courses.length, icon: BookOpen, color: 'text-hu-green', bg: 'bg-hu-green/10' },
+              { label: 'Total Sections', value: sections.length, icon: Database, color: 'text-hu-green', bg: 'bg-hu-green/10' },
+              { label: 'System Status', value: 'Operational', icon: ShieldCheck, color: 'text-hu-green', bg: 'bg-hu-green/10' }
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="premium-card p-5 md:p-8 border-none"
+                className="hu-card p-5 md:p-8 border-none"
               >
                 <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-inner", stat.bg, stat.color)}>
                   <stat.icon className="w-7 h-7" />
                 </div>
-                <p className="premium-label mb-1">{stat.label}</p>
-                <p className={cn("text-2xl md:text-3xl font-serif font-bold", stat.label === 'System Status' ? 'text-premium-black' : 'text-black')}>
+                <p className="hu-label mb-1">{stat.label}</p>
+                <p className={cn("text-2xl md:text-3xl font-serif font-bold", stat.label === 'System Status' ? 'text-hu-green' : 'text-hu-charcoal')}>
                   {stat.value}
                 </p>
               </motion.div>
@@ -291,16 +286,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
           </div>
 
           {/* Quick Actions Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <section className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
             {[
               { title: 'Semesters', desc: 'Manage academic terms and active semesters.', icon: Calendar, color: 'text-orange-500', bg: 'bg-orange-50', path: '/admin/semesters' },
               { title: 'Course Catalog', desc: 'Architect the academic curriculum and course structures.', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50', path: '/admin/courses' },
               { title: 'Section Assignments', desc: 'Assign courses to instructors and set schedules.', icon: LayoutDashboard, color: 'text-indigo-500', bg: 'bg-indigo-50', path: '/admin/sections' },
               { title: 'Staff Management', desc: 'Manage instructors and administrative staff.', icon: Briefcase, color: 'text-purple-500', bg: 'bg-purple-50', path: '/admin/staff' },
               { title: 'Student Management', desc: 'Manage student enrollment and records.', icon: GraduationCap, color: 'text-green-500', bg: 'bg-green-50', path: '/admin/students' },
-              { title: 'System Backup', desc: 'Securely archive all system data and configurations.', icon: Database, color: 'text-premium-gold', bg: 'bg-premium-cream', action: handleBackup }
+              { title: 'System Backup', desc: 'Securely archive all system data and configurations.', icon: Database, color: 'text-hu-gold', bg: 'bg-hu-cream', action: handleBackup }
             ].map((action) => (
-              <div key={action.title} className="premium-card p-6 md:p-10 space-y-6 border-none">
+              <div key={action.title} className="hu-card-alt p-6 md:p-10 space-y-6 border-none">
                 <div className="flex items-center gap-4">
                   <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center shadow-inner", action.bg, action.color)}>
                     <action.icon className="w-6 h-6" />
@@ -310,7 +305,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                 <p className="text-sm text-gray-400 font-medium leading-relaxed">{action.desc}</p>
                 <button 
                   onClick={() => action.path ? navigate(action.path) : action.action?.()}
-                  className="w-full py-4 bg-premium-black/10 hover:bg-premium-black hover:text-white text-black rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300"
+                  className="w-full py-4 bg-hu-green/10 hover:bg-hu-green hover:text-white text-black rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300"
                 >
                   {action.action ? 'Execute Backup' : `Manage ${action.title.split(' ')[0]}`}
                 </button>
@@ -321,19 +316,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
           {/* Department Reports Section */}
           <section className="space-y-6 md:space-y-8">
             <div className="flex items-center gap-4">
-              <FileText className="w-6 h-6 text-premium-black" />
+              <FileText className="w-6 h-6 text-hu-green" />
               <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Departmental Reports</h2>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
               {['Computer Science', 'Information Systems', 'Software Engineering', 'IT Management'].map((dept) => (
-                <div key={dept} className="premium-card p-6 flex items-center justify-between group hover:bg-premium-cream/20 transition-all">
+                <div key={dept} className="hu-card-alt p-6 flex items-center justify-between group hover:bg-hu-cream/20 transition-all">
                   <div>
                     <p className="text-sm font-bold text-black">{dept}</p>
                     <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest mt-1">Attendance Summary</p>
                   </div>
                   <button 
                     onClick={() => handleDownloadDeptReport(dept)}
-                    className="p-3 bg-premium-cream rounded-xl text-premium-black hover:bg-premium-black hover:text-white transition-all shadow-sm"
+                    className="p-3 bg-hu-cream rounded-xl text-hu-green hover:bg-hu-green hover:text-white transition-all shadow-sm"
                   >
                     <Download className="w-4 h-4" />
                   </button>
@@ -358,7 +353,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   placeholder={`Search ${view}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-6 py-3 bg-premium-cream/30 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                  className="w-full pl-12 pr-6 py-3 bg-hu-cream/30 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                 />
               </div>
               <button 
@@ -367,7 +362,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   setUserForm({ fullName: '', email: '', role: view === 'staff' ? 'instructor' : 'student', department: 'Computer Science', idNumber: '', isActive: true });
                   setIsUserModalOpen(true);
                 }}
-                className="premium-button flex items-center gap-3"
+                className="hu-button-rounded flex items-center gap-3"
               >
                 <Plus className="w-5 h-5" />
                 <span className="text-xs uppercase tracking-widest">Add {view === 'staff' ? 'Staff' : 'Student'}</span>
@@ -375,11 +370,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
             </div>
           </div>
 
-          <div className="premium-card overflow-hidden border-none">
+          <div className="hu-card-alt overflow-hidden border-none">
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[800px]">
                 <thead>
-                  <tr className="bg-premium-cream/20">
+                  <tr className="bg-hu-cream/20">
                     <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">User</th>
                     <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Role</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Department</th>
@@ -394,11 +389,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="hover:bg-premium-cream/10 transition-colors group"
+                      className="hover:bg-hu-cream/10 transition-colors group"
                     >
                       <td className="px-8 py-6 whitespace-nowrap">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-premium-black/10 rounded-xl flex items-center justify-center text-premium-black font-bold text-xs shadow-sm">
+                          <div className="w-10 h-10 bg-hu-green/10 rounded-xl flex items-center justify-center text-hu-green font-bold text-xs shadow-sm">
                             {u.fullName.charAt(0)}
                           </div>
                           <div>
@@ -408,7 +403,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                               {u.idNumber && (
                                 <>
                                   <span className="text-gray-200">•</span>
-                                  <p className="text-[10px] font-bold text-premium-black font-mono">{u.idNumber}</p>
+                                  <p className="text-[10px] font-bold text-hu-green font-mono">{u.idNumber}</p>
                                 </>
                               )}
                             </div>
@@ -416,14 +411,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                         </div>
                       </td>
                       <td className="px-8 py-6 whitespace-nowrap">
-                        <span className="px-4 py-1.5 bg-premium-black/10 text-black rounded-full text-[10px] font-bold uppercase tracking-widest border border-premium-black/10">
+                        <span className="px-4 py-1.5 bg-hu-green/10 text-black rounded-full text-[10px] font-bold uppercase tracking-widest border border-hu-green/10">
                           {u.role}
                         </span>
                       </td>
                       <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{u.department}</td>
                       <td className="px-8 py-6 whitespace-nowrap">
-                        <span className="flex items-center gap-2 text-[10px] font-bold text-premium-black uppercase tracking-widest">
-                          <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", u.isActive ? "bg-premium-black" : "bg-red-500")} />
+                        <span className="flex items-center gap-2 text-[10px] font-bold text-hu-green uppercase tracking-widest">
+                          <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", u.isActive ? "bg-hu-green" : "bg-red-500")} />
                           {u.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -435,7 +430,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                               setUserForm(u);
                               setIsUserModalOpen(true);
                             }}
-                            className="p-2 text-gray-300 hover:text-premium-gold transition-colors"
+                            className="p-2 text-gray-300 hover:text-hu-gold transition-colors"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -468,7 +463,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   placeholder="Search courses..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-6 py-3 bg-premium-cream/30 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                  className="w-full pl-12 pr-6 py-3 bg-hu-cream/30 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                 />
               </div>
               <button 
@@ -477,7 +472,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   setCourseForm({ courseCode: '', title: '', creditHours: 3, department: 'Computer Science' });
                   setIsCourseModalOpen(true);
                 }}
-                className="premium-button flex items-center gap-3"
+                className="hu-button-rounded flex items-center gap-3"
               >
                 <Plus className="w-5 h-5" />
                 <span className="text-xs uppercase tracking-widest">Add Course</span>
@@ -485,11 +480,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
             </div>
           </div>
 
-          <div className="premium-card overflow-hidden border-none">
+          <div className="hu-card-alt overflow-hidden border-none">
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[800px]">
                 <thead>
-                  <tr className="bg-premium-cream/20">
+                  <tr className="bg-hu-cream/20">
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Course Code</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Title</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Credit Hours</th>
@@ -504,9 +499,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="hover:bg-premium-cream/10 transition-colors group"
+                      className="hover:bg-hu-cream/10 transition-colors group"
                     >
-                      <td className="px-8 py-6 text-sm font-bold text-premium-black font-mono whitespace-nowrap">{c.courseCode}</td>
+                      <td className="px-8 py-6 text-sm font-bold text-hu-green font-mono whitespace-nowrap">{c.courseCode}</td>
                       <td className="px-8 py-6 text-sm font-bold text-black whitespace-nowrap">{c.title}</td>
                       <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{c.creditHours} Units</td>
                       <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{c.department}</td>
@@ -518,7 +513,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                               setCourseForm(c);
                               setIsCourseModalOpen(true);
                             }}
-                            className="p-2 text-gray-300 hover:text-premium-gold transition-colors"
+                            className="p-2 text-gray-300 hover:text-hu-gold transition-colors"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -543,17 +538,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
         <section className="space-y-6 md:space-y-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Academic Semesters</h2>
-            <button className="premium-button flex items-center gap-3">
+            <button className="hu-button-rounded flex items-center gap-3">
               <Plus className="w-5 h-5" />
               <span className="text-xs uppercase tracking-widest">Add Semester</span>
             </button>
           </div>
 
-          <div className="premium-card overflow-hidden border-none">
+          <div className="hu-card-alt overflow-hidden border-none">
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[800px]">
                 <thead>
-                  <tr className="bg-premium-cream/20">
+                  <tr className="bg-hu-cream/20">
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Name</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Start Date</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">End Date</th>
@@ -568,7 +563,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="hover:bg-premium-cream/10 transition-colors group"
+                      className="hover:bg-hu-cream/10 transition-colors group"
                     >
                       <td className="px-8 py-6 text-sm font-bold text-black whitespace-nowrap">{s.name}</td>
                       <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{s.startDate}</td>
@@ -588,7 +583,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                                 setActiveSemester(s.semesterId);
                               }
                             }}
-                            className="text-xs font-bold text-premium-gold hover:text-premium-black uppercase tracking-widest transition-colors"
+                            className="text-xs font-bold text-hu-gold hover:text-hu-green uppercase tracking-widest transition-colors"
                           >
                             Set Active
                           </button>
@@ -613,19 +608,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                 setSectionForm({ courseId: '', instructorId: '', room: '', schedule: '' });
                 setIsSectionModalOpen(true);
               }}
-              className="premium-button flex items-center gap-3"
+              className="hu-button-rounded flex items-center gap-3"
             >
               <Plus className="w-5 h-5" />
               <span className="text-xs uppercase tracking-widest">Assign Section</span>
             </button>
           </div>
 
-          <div className="premium-card overflow-hidden border-none">
+          <div className="hu-card-alt overflow-hidden border-none">
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[800px]">
                 <thead>
-                  <tr className="bg-premium-cream/20">
-                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Course</th>
+                  <tr className="bg-hu-cream/20">
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Section</th>
+                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Course Details</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Instructor</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Room</th>
                     <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Schedule</th>
@@ -642,13 +638,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: i * 0.05 }}
-                        className="hover:bg-premium-cream/10 transition-colors group"
+                        className="hover:bg-hu-cream/10 transition-colors group"
                       >
                         <td className="px-8 py-6 whitespace-nowrap">
-                          <p className="text-sm font-bold text-black">{course?.courseCode}</p>
-                          <p className="text-xs text-gray-400 mt-1">{course?.title}</p>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-mono font-bold text-gray-400 uppercase tracking-widest">ID: {s.sectionId.split('-')[1] || s.sectionId}</span>
+                            <span className="text-sm font-bold text-black mt-1">Section {s.sectionId.split('-')[1] || s.sectionId}</span>
+                          </div>
                         </td>
-                        <td className="px-8 py-6 text-sm font-bold text-black whitespace-nowrap">{instructor?.fullName}</td>
+                        <td className="px-8 py-6 whitespace-nowrap">
+                          <p className="text-sm font-bold text-black">{course?.courseCode || 'N/A'}</p>
+                          <p className="text-xs text-gray-400 mt-1 font-medium italic">{course?.title || 'Course title not found'}</p>
+                        </td>
+                        <td className="px-8 py-6 whitespace-nowrap">
+                          <p className="text-sm font-bold text-black">{instructor?.fullName || 'Unassigned'}</p>
+                          <p className="text-[10px] text-gray-400 mt-1 font-medium uppercase tracking-widest">{instructor?.userId || 'No Instructor ID'}</p>
+                        </td>
                         <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{s.room}</td>
                         <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{s.schedule}</td>
                         <td className="px-8 py-6 whitespace-nowrap">
@@ -659,7 +664,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                                 setSectionForm(s);
                                 setIsSectionModalOpen(true);
                               }}
-                              className="p-2 text-gray-300 hover:text-premium-gold transition-colors"
+                              className="p-2 text-gray-300 hover:text-hu-gold transition-colors"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
@@ -691,17 +696,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
             {/* Academic Terms */}
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <Calendar className="w-5 h-5 text-premium-black" />
+                <Calendar className="w-5 h-5 text-hu-green" />
                 <h3 className="text-base md:text-lg font-bold text-black">Academic Terms</h3>
               </div>
-              <div className="premium-card p-5 md:p-5 md:p-8 space-y-6">
+              <div className="hu-card-alt p-5 md:p-5 md:p-8 space-y-6">
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center p-4 bg-premium-cream/30 rounded-2xl">
+                  <div className="flex justify-between items-center p-4 bg-hu-cream/30 rounded-2xl">
                     <div>
                       <p className="text-sm font-bold text-black">2025/26 Semester I</p>
                       <p className="text-[10px] text-gray-400 font-medium">Oct 2025 - Feb 2026</p>
                     </div>
-                    <span className="px-3 py-1 bg-premium-black text-white rounded-full text-[9px] font-bold uppercase tracking-widest">Active</span>
+                    <span className="px-3 py-1 bg-hu-green text-white rounded-full text-[9px] font-bold uppercase tracking-widest">Active</span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-gray-50 rounded-2xl opacity-60">
                     <div>
@@ -711,7 +716,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     <span className="px-3 py-1 bg-gray-200 text-gray-500 rounded-full text-[9px] font-bold uppercase tracking-widest">Archived</span>
                   </div>
                 </div>
-                <button className="w-full py-4 border-2 border-dashed border-gray-100 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:border-premium-black hover:text-premium-black transition-all">
+                <button className="w-full py-4 border-2 border-dashed border-gray-100 rounded-2xl text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:border-hu-green hover:text-hu-green transition-all">
                   Configure New Term
                 </button>
               </div>
@@ -720,10 +725,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
             {/* Attendance Policies */}
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <Lock className="w-5 h-5 text-premium-black" />
+                <Lock className="w-5 h-5 text-hu-green" />
                 <h3 className="text-lg font-bold text-black">Attendance Policies</h3>
               </div>
-              <div className="premium-card p-5 md:p-8 space-y-8">
+              <div className="hu-card-alt p-5 md:p-8 space-y-8">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -756,7 +761,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     </div>
                   </div>
                 </div>
-                <button className="premium-button w-full py-4 text-xs">Save Policy Updates</button>
+                <button className="hu-button-rounded w-full py-4 text-xs">Save Policy Updates</button>
               </div>
             </div>
           </div>
@@ -778,7 +783,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden"
             >
-              <div className="p-5 md:p-8 border-b border-gray-100 flex items-center justify-between bg-premium-cream/30">
+              <div className="p-5 md:p-8 border-b border-gray-100 flex items-center justify-between bg-hu-cream/30">
                 <h3 className="text-xl md:text-2xl font-serif font-bold text-black">
                   {editingUser ? 'Edit Personnel' : 'Add New Personnel'}
                 </h3>
@@ -795,7 +800,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="text"
                       value={userForm.fullName}
                       onChange={(e) => setUserForm({ ...userForm, fullName: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="e.g. Dr. Abebe Kebede"
                     />
                   </div>
@@ -806,7 +811,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="email"
                       value={userForm.email}
                       onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="email@haramaya.edu.et"
                     />
                   </div>
@@ -815,7 +820,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     <select
                       value={userForm.role}
                       onChange={(e) => setUserForm({ ...userForm, role: e.target.value as UserRole })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all appearance-none"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
                     >
                       <option value="student">Student</option>
                       <option value="instructor">Instructor</option>
@@ -829,7 +834,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="text"
                       value={userForm.idNumber}
                       onChange={(e) => setUserForm({ ...userForm, idNumber: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="e.g. 0328/15"
                     />
                   </div>
@@ -840,7 +845,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="text"
                       value={userForm.department}
                       onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="e.g. Computer Science"
                     />
                   </div>
@@ -855,7 +860,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-4 bg-premium-black text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-premium-gold transition-all shadow-xl shadow-premium-black/20"
+                    className="flex-1 py-4 bg-hu-green text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-hu-gold transition-all shadow-xl shadow-hu-green/20"
                   >
                     {editingUser ? 'Update Personnel' : 'Create Personnel'}
                   </button>
@@ -883,7 +888,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden"
             >
-              <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-premium-cream/30">
+              <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-hu-cream/30">
                 <h3 className="text-2xl font-serif font-bold text-black">
                   {editingCourse ? 'Edit Course' : 'Add New Course'}
                 </h3>
@@ -900,7 +905,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="text"
                       value={courseForm.courseCode}
                       onChange={(e) => setCourseForm({ ...courseForm, courseCode: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="e.g. CoSc4038"
                     />
                   </div>
@@ -911,7 +916,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="text"
                       value={courseForm.title}
                       onChange={(e) => setCourseForm({ ...courseForm, title: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="e.g. Distributed Systems"
                     />
                   </div>
@@ -922,7 +927,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="number"
                       value={courseForm.creditHours}
                       onChange={(e) => setCourseForm({ ...courseForm, creditHours: parseInt(e.target.value) })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       min="1"
                       max="6"
                     />
@@ -934,7 +939,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="text"
                       value={courseForm.department}
                       onChange={(e) => setCourseForm({ ...courseForm, department: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="e.g. Computer Science"
                     />
                   </div>
@@ -949,7 +954,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-4 bg-premium-black text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-premium-gold transition-all shadow-xl shadow-premium-black/20"
+                    className="flex-1 py-4 bg-hu-green text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-hu-gold transition-all shadow-xl shadow-hu-green/20"
                   >
                     {editingCourse ? 'Update Course' : 'Create Course'}
                   </button>
@@ -976,7 +981,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="relative w-full max-w-2xl bg-white rounded-[32px] shadow-2xl overflow-hidden"
             >
-              <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-premium-cream/30">
+              <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-hu-cream/30">
                 <h3 className="text-2xl font-serif font-bold text-black">
                   {editingSection ? 'Edit Section Assignment' : 'Assign New Section'}
                 </h3>
@@ -992,7 +997,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       required
                       value={sectionForm.courseId}
                       onChange={(e) => setSectionForm({ ...sectionForm, courseId: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all appearance-none"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
                     >
                       <option value="">Select Course</option>
                       {courses.map(c => (
@@ -1006,7 +1011,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       required
                       value={sectionForm.instructorId}
                       onChange={(e) => setSectionForm({ ...sectionForm, instructorId: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all appearance-none"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
                     >
                       <option value="">Select Instructor</option>
                       {users.filter(u => u.role === 'instructor').map(u => (
@@ -1021,7 +1026,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="text"
                       value={sectionForm.room}
                       onChange={(e) => setSectionForm({ ...sectionForm, room: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="e.g. Block 24, Room 102"
                     />
                   </div>
@@ -1032,7 +1037,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       type="text"
                       value={sectionForm.schedule}
                       onChange={(e) => setSectionForm({ ...sectionForm, schedule: e.target.value })}
-                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-premium-gold/20 outline-none transition-all"
+                      className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                       placeholder="e.g. Mon, Wed • 08:30 AM"
                     />
                   </div>
@@ -1047,7 +1052,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-4 bg-premium-black text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-premium-gold transition-all shadow-xl shadow-premium-black/20"
+                    className="flex-1 py-4 bg-hu-green text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-hu-gold transition-all shadow-xl shadow-hu-green/20"
                   >
                     {editingSection ? 'Update Section' : 'Assign Section'}
                   </button>

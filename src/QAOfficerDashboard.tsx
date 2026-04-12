@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { Attendance, User, ClassSession } from './types';
 import { motion } from 'motion/react';
-import { ShieldCheck, FileText, TrendingUp, AlertCircle, CheckCircle2, Search, Filter, Download, BarChart3, History, ClipboardCheck, MessageSquare, Activity } from 'lucide-react';
+import { ShieldCheck, TrendingUp, AlertCircle, CheckCircle2, Search, Filter, Download, BarChart3, History, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from './lib/utils';
 import { MOCK_ATTENDANCE, MOCK_USER, MOCK_SESSIONS } from './mockData';
@@ -67,7 +67,7 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
       {/* Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-4 md:gap-8">
         <div className="text-left">
-          <p className="premium-label">Quality Assurance Portal</p>
+          <p className="hu-label">Quality Assurance Portal</p>
           <h1 className="text-3xl md:text-5xl font-serif font-bold text-black tracking-tight">
             Compliance <span className="text-gray-black/40 italic">Audit</span>
           </h1>
@@ -82,23 +82,23 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
       {view === 'overview' && (
         <>
           {/* Audit Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
             {[
-              { label: 'Compliance Rate', value: '94.2%', icon: ShieldCheck, color: 'text-premium-black', bg: 'bg-premium-black/10' },
+              { label: 'Compliance Rate', value: '94.2%', icon: ShieldCheck, color: 'text-hu-green', bg: 'bg-hu-green/10' },
               { label: 'Students At Risk', value: studentsAtRisk.length, icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-50' },
-              { label: 'Total Audit Logs', value: attendance.length, icon: BarChart3, color: 'text-premium-black', bg: 'bg-premium-black/10' }
+              { label: 'Total Audit Logs', value: attendance.length, icon: BarChart3, color: 'text-hu-green', bg: 'bg-hu-green/10' }
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.1 }}
-                className="premium-card p-5 md:p-8 border-none"
+                className="hu-card-alt p-5 md:p-8 border-none"
               >
                 <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mb-6 shadow-inner", stat.bg, stat.color)}>
                   <stat.icon className="w-7 h-7" />
                 </div>
-                <p className="premium-label mb-1">{stat.label}</p>
+                <p className="hu-label mb-1">{stat.label}</p>
                 <p className="text-2xl md:text-3xl font-serif font-bold text-black">{stat.value}</p>
               </motion.div>
             ))}
@@ -151,13 +151,13 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
           </div>
 
           {/* Quick Actions Grid */}
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <section className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
             {[
               { title: 'Audit Logs', desc: 'Review system compliance and attendance logs.', icon: ShieldCheck, color: 'text-blue-500', bg: 'bg-blue-50', path: '/qa/audit' },
               { title: 'Corrections', desc: 'Review and approve attendance correction requests.', icon: ClipboardCheck, color: 'text-purple-500', bg: 'bg-purple-50', path: '/qa/corrections' },
               { title: 'Reports', desc: 'Generate verification and compliance reports.', icon: BarChart3, color: 'text-green-500', bg: 'bg-green-50', path: '/qa/reports' }
             ].map((action) => (
-              <div key={action.title} className="premium-card p-6 md:p-10 space-y-6 border-none">
+              <div key={action.title} className="hu-card-alt p-6 md:p-10 space-y-6 border-none">
                 <div className="flex items-center gap-4">
                   <div className={cn("w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center shadow-inner", action.bg, action.color)}>
                     <action.icon className="w-6 h-6" />
@@ -167,7 +167,7 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
                 <p className="text-sm text-gray-400 font-medium leading-relaxed">{action.desc}</p>
                 <button 
                   onClick={() => navigate(action.path)}
-                  className="w-full py-4 bg-premium-black/10 hover:bg-premium-black hover:text-white text-black rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300"
+                  className="w-full py-4 bg-hu-green/10 hover:bg-hu-green hover:text-white text-black rounded-2xl font-bold text-[10px] uppercase tracking-[0.2em] transition-all duration-300"
                 >
                   Manage {action.title.split(' ')[0]}
                 </button>
@@ -188,17 +188,17 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
                   <input
                     type="text"
                     placeholder="Filter by course..."
-                    className="w-full pl-12 pr-6 py-3 bg-premium-cream/30 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-vibrant-green/20 outline-none transition-all"
+                    className="w-full pl-12 pr-6 py-3 bg-hu-cream/30 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-hu-green/20 outline-none transition-all"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="premium-card overflow-hidden border-none">
+            <div className="hu-card-alt overflow-hidden border-none">
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[800px]">
                   <thead>
-                    <tr className="bg-premium-cream/20">
+                    <tr className="bg-hu-cream/20">
                       <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Course</th>
                       <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Instructor</th>
                       <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Avg. Attendance</th>
@@ -207,7 +207,7 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    <tr className="hover:bg-premium-cream/10 transition-colors group">
+                    <tr className="hover:bg-hu-cream/10 transition-colors group">
                       <td className="px-8 py-6 whitespace-nowrap">
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-black">Database Systems</span>
@@ -217,13 +217,13 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
                       <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">Dr. Alemu Gudata</td>
                       <td className="px-8 py-6 text-sm font-bold text-black whitespace-nowrap">92%</td>
                       <td className="px-8 py-6 whitespace-nowrap">
-                        <span className="px-4 py-1.5 bg-premium-black/10 text-premium-black rounded-full text-[10px] font-bold uppercase tracking-widest border border-premium-black/20">
+                        <span className="px-4 py-1.5 bg-hu-green/10 text-hu-green rounded-full text-[10px] font-bold uppercase tracking-widest border border-hu-green/20">
                           Compliant
                         </span>
                       </td>
                       <td className="px-8 py-6 text-sm text-gray-400 whitespace-nowrap">Today, 10:30 AM</td>
                     </tr>
-                    <tr className="hover:bg-premium-cream/10 transition-colors group">
+                    <tr className="hover:bg-hu-cream/10 transition-colors group">
                       <td className="px-8 py-6 whitespace-nowrap">
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-black">Web Development</span>
@@ -277,14 +277,14 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
       {view === 'corrections' && (
         <section className="space-y-8">
           <div className="flex items-center gap-4">
-            <ClipboardCheck className="w-6 h-6 text-premium-black" />
+            <ClipboardCheck className="w-6 h-6 text-hu-green" />
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Attendance Correction Requests</h2>
           </div>
-          <div className="premium-card overflow-hidden border-none">
+          <div className="hu-card-alt overflow-hidden border-none">
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[800px]">
                 <thead>
-                  <tr className="bg-premium-cream/20">
+                  <tr className="bg-hu-cream/20">
                     <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Student</th>
                   <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Course & Date</th>
                   <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-gray-black/70 whitespace-nowrap">Reason</th>
@@ -296,7 +296,7 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
                   { id: '1', name: 'Mustafe Kadar', course: 'CS-301', date: '2026-04-05', reason: 'Medical Appointment' },
                   { id: '2', name: 'Dahir Bashir', course: 'CS-305', date: '2026-04-06', reason: 'Technical Issue' }
                 ].map((req) => (
-                  <tr key={req.id} className="hover:bg-premium-cream/10 transition-colors">
+                  <tr key={req.id} className="hover:bg-hu-cream/10 transition-colors">
                     <td className="px-8 py-6 whitespace-nowrap">
                       <p className="text-sm font-bold text-black">{req.name}</p>
                     </td>
@@ -333,7 +333,7 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
       {view === 'reports' && (
         <section className="space-y-8">
           <div className="flex items-center gap-4">
-            <BarChart3 className="w-6 h-6 text-premium-black" />
+            <BarChart3 className="w-6 h-6 text-hu-green" />
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-black">Verification Reports</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -342,8 +342,8 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
               { title: 'Instructor Integrity', desc: 'Audit logs of session creation and geofence usage.', icon: History },
               { title: 'Risk Analytics', desc: 'Deep dive into student absenteeism trends.', icon: TrendingUp }
             ].map((report) => (
-              <div key={report.title} className="premium-card p-5 md:p-5 md:p-8 space-y-6">
-                <div className="w-10 h-10 md:w-12 md:h-12 bg-premium-cream rounded-2xl flex items-center justify-center text-premium-black">
+              <div key={report.title} className="hu-card-alt p-5 md:p-5 md:p-8 space-y-6">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-hu-cream rounded-2xl flex items-center justify-center text-hu-green">
                   <report.icon className="w-6 h-6" />
                 </div>
                 <div>
@@ -352,7 +352,7 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
                 </div>
                 <button 
                   onClick={() => handleDownloadAudit(report.title)}
-                  className="w-full py-3 bg-premium-black text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-premium-gold transition-all"
+                  className="w-full py-3 bg-hu-green text-white rounded-xl font-bold text-[10px] uppercase tracking-widest hover:bg-hu-gold transition-all"
                 >
                   Download Report
                 </button>

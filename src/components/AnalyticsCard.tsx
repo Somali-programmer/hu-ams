@@ -14,7 +14,7 @@ const AnalyticsCard: React.FC<AnalyticsCardProps> = ({ title, subtitle, children
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={cn("premium-card p-5 md:p-8 space-y-6", className)}
+      className={cn("hu-card-alt p-5 md:p-8 space-y-6", className)}
     >
       <div className="space-y-1">
         <h3 className="text-lg md:text-xl font-serif font-bold text-black">{title}</h3>

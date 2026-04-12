@@ -34,14 +34,14 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {/* Mobile Header */}
         <header className="lg:hidden bg-white border-b border-gray-100 p-4 md:p-6 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-premium-black rounded-xl flex items-center justify-center text-white shadow-lg shadow-premium-black/20">
+            <div className="w-10 h-10 bg-hu-green rounded-xl flex items-center justify-center text-white shadow-lg shadow-hu-green/20">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <span className="font-serif font-bold text-lg md:text-xl tracking-tight text-black">HU-AMS</span>
           </div>
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="p-2.5 md:p-3 text-black bg-premium-black/10 rounded-xl transition-all"
+            className="p-2.5 md:p-3 text-black bg-hu-green/10 rounded-xl transition-all"
           >
             <Menu className="w-6 h-6" />
           </button>
@@ -56,9 +56,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               &copy; 2026 Haramaya University. All rights reserved.
             </p>
             <div className="flex items-center gap-4 md:gap-8 text-center md:text-left">
-              <a href="#" className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-premium-gold transition-colors">Privacy</a>
-              <a href="#" className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-premium-gold transition-colors">Terms</a>
-              <a href="#" className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-premium-gold transition-colors">Support</a>
+              <a href="#" className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-hu-gold transition-colors">Privacy</a>
+              <a href="#" className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-hu-gold transition-colors">Terms</a>
+              <a href="#" className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-hu-gold transition-colors">Support</a>
             </div>
           </div>
         </footer>

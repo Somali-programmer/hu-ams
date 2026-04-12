@@ -15,15 +15,15 @@ const Profile: React.FC = () => {
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="premium-card overflow-hidden border-none"
+        className="hu-card-alt overflow-hidden border-none"
       >
-        <div className="h-40 bg-gradient-to-r from-premium-black to-vibrant-green relative overflow-hidden">
+        <div className="h-40 bg-gradient-to-r from-hu-green to-hu-gold relative overflow-hidden">
           <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
         </div>
         <div className="px-8 md:px-12 pb-12">
           <div className="relative -mt-16 mb-8">
             <div className="w-32 h-32 bg-white rounded-3xl shadow-2xl flex items-center justify-center border-8 border-white">
-              <div className="w-full h-full bg-premium-black/10 rounded-2xl flex items-center justify-center text-premium-black">
+              <div className="w-full h-full bg-hu-green/10 rounded-2xl flex items-center justify-center text-hu-green">
                 <UserIcon className="w-10 h-10 md:w-12 md:h-12 md:w-16 md:h-16" />
               </div>
             </div>
@@ -40,15 +40,15 @@ const Profile: React.FC = () => {
                 { label: 'Email Address', value: user.email, icon: Mail },
                 { label: 'Department', value: user.department, icon: Building },
                 { label: 'Phone Number', value: user.phone || 'Not provided', icon: Phone },
-                { label: 'Account Status', value: 'Active', icon: Shield, color: 'text-premium-black' },
+                { label: 'Account Status', value: 'Active', icon: Shield, color: 'text-hu-green' },
                 { label: 'Joined On', value: format(new Date(user.createdAt), 'MMMM dd, yyyy'), icon: Calendar }
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-premium-black/10 rounded-2xl flex items-center justify-center text-premium-black shadow-inner">
+                  <div className="w-12 h-12 bg-hu-green/10 rounded-2xl flex items-center justify-center text-hu-green shadow-inner">
                     <item.icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="premium-label mb-0">{item.label}</p>
+                    <p className="hu-label mb-0">{item.label}</p>
                     <p className={cn("text-sm font-bold", item.color || "text-black")}>{item.value}</p>
                   </div>
                 </div>
@@ -56,8 +56,8 @@ const Profile: React.FC = () => {
             </div>
 
             <div className="pt-6">
-              <button className="premium-button w-full">
-                Edit Premium Profile
+              <button className="hu-button-rounded w-full">
+                Edit Profile
               </button>
             </div>
           </div>
