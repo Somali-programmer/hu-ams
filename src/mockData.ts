@@ -412,19 +412,86 @@ export const MOCK_SECTIONS: Section[] = [
 ];
 
 export const MOCK_ENROLLMENTS: Enrollment[] = [
-  // Section 1 (Regular, Main)
-  { enrollmentId: 'enr-1', studentId: 'std-1', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
-  { enrollmentId: 'enr-2', studentId: 'std-2', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
-  { enrollmentId: 'enr-3', studentId: 'std-5', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
-  { enrollmentId: 'enr-4', studentId: 'std-6', sectionId: 'section-1', enrolledAt: new Date().toISOString() },
+  // Section 1 (Regular, Main) - Current Semester
+  { enrollmentId: 'enr-1', studentId: 'std-1', sectionId: 'section-1', enrolledAt: new Date().toISOString(), status: 'active' },
+  { enrollmentId: 'enr-2', studentId: 'std-2', sectionId: 'section-1', enrolledAt: new Date().toISOString(), status: 'active' },
+  { enrollmentId: 'enr-3', studentId: 'std-5', sectionId: 'section-1', enrolledAt: new Date().toISOString(), status: 'active' },
+  { enrollmentId: 'enr-4', studentId: 'std-6', sectionId: 'section-1', enrolledAt: new Date().toISOString(), status: 'active' },
   
-  // Section 2 (Extension, Jigjiga)
-  { enrollmentId: 'enr-5', studentId: 'std-3', sectionId: 'section-2', enrolledAt: new Date().toISOString() },
-  { enrollmentId: 'enr-6', studentId: 'std-4', sectionId: 'section-2', enrolledAt: new Date().toISOString() },
+  // Section 2 (Extension, Jigjiga) - Current Semester
+  { enrollmentId: 'enr-5', studentId: 'std-3', sectionId: 'section-2', enrolledAt: new Date().toISOString(), status: 'active' },
+  { enrollmentId: 'enr-6', studentId: 'std-4', sectionId: 'section-2', enrolledAt: new Date().toISOString(), status: 'active' },
   
-  // Section 3 (Regular, Main)
-  { enrollmentId: 'enr-7', studentId: 'std-1', sectionId: 'section-3', enrolledAt: new Date().toISOString() },
-  { enrollmentId: 'enr-8', studentId: 'std-2', sectionId: 'section-3', enrolledAt: new Date().toISOString() },
+  // Section 3 (Regular, Main) - Current Semester
+  { enrollmentId: 'enr-7', studentId: 'std-1', sectionId: 'section-3', enrolledAt: new Date().toISOString(), status: 'active' },
+  { enrollmentId: 'enr-8', studentId: 'std-2', sectionId: 'section-3', enrolledAt: new Date().toISOString(), status: 'active' },
+
+  // Historical Data for std-1 (Mustafe)
+  { enrollmentId: 'enr-hist-1', studentId: 'std-1', sectionId: 'section-hist-1', enrolledAt: '2025-02-01', status: 'completed', grade: 'A' },
+  { enrollmentId: 'enr-hist-2', studentId: 'std-1', sectionId: 'section-hist-2', enrolledAt: '2025-02-01', status: 'completed', grade: 'B+' },
+  { enrollmentId: 'enr-hist-3', studentId: 'std-1', sectionId: 'section-hist-3', enrolledAt: '2025-09-01', status: 'completed', grade: 'A-' },
+];
+
+export const MOCK_HISTORICAL_SECTIONS: Section[] = [
+  {
+    sectionId: 'section-hist-1',
+    courseId: 'course-9', // Operating Systems
+    instructorId: 'inst-5',
+    semesterId: 'sem-old-1',
+    room: 'Block 24, Room 101',
+    programType: 'prog-regular',
+    center: 'main',
+    startDate: '2025-02-01',
+    endDate: '2025-06-15',
+    schedule: [],
+    geofenceCenter: { latitude: 9.412, longitude: 42.035 },
+    geofenceRadius: 50,
+  },
+  {
+    sectionId: 'section-hist-2',
+    courseId: 'course-10', // Data Structures
+    instructorId: 'inst-5',
+    semesterId: 'sem-old-1',
+    room: 'Block 24, Room 101',
+    programType: 'prog-regular',
+    center: 'main',
+    startDate: '2025-02-01',
+    endDate: '2025-06-15',
+    schedule: [],
+    geofenceCenter: { latitude: 9.412, longitude: 42.035 },
+    geofenceRadius: 50,
+  },
+  {
+    sectionId: 'section-hist-3',
+    courseId: 'course-4', // History
+    instructorId: 'inst-4',
+    semesterId: 'sem-old-2',
+    room: 'Block 24, Room 101',
+    programType: 'prog-regular',
+    center: 'main',
+    startDate: '2025-09-01',
+    endDate: '2026-01-15',
+    schedule: [],
+    geofenceCenter: { latitude: 9.412, longitude: 42.035 },
+    geofenceRadius: 50,
+  },
+];
+
+export const MOCK_HISTORICAL_SEMESTERS: Semester[] = [
+  {
+    semesterId: 'sem-old-1',
+    name: 'Spring 2025',
+    startDate: '2025-02-01',
+    endDate: '2025-06-15',
+    isActive: false,
+  },
+  {
+    semesterId: 'sem-old-2',
+    name: 'Fall 2025',
+    startDate: '2025-09-01',
+    endDate: '2026-01-15',
+    isActive: false,
+  },
 ];
 
 export const MOCK_SESSIONS: ClassSession[] = [

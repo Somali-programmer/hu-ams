@@ -68,6 +68,8 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [mapSectionId, setMapSectionId] = useState<string | null>(null);
 
+  const [editingPolicy, setEditingPolicy] = useState<Record<string, string>>({});
+
   const activeSemester = semesters.find(s => s.isActive);
 
   useEffect(() => {
@@ -215,10 +217,25 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
     setLiveAttendance(attendanceWithStudents);
   }, [activeSession, attendance, users]);
 
+  const handleSavePolicy = (sectionId: string) => {
+    const policy = editingPolicy[sectionId];
+    if (policy !== undefined) {
+      updateSection(sectionId, {
+        coursePolicy: policy
+      });
+      alert('Course policy updated successfully.');
+    }
+  };
+
   const handleStartSession = async () => {
     if (!selectedSection) return;
     const section = sections.find(s => s.sectionId === selectedSection);
     if (!section) return;
+
+    if (!section.coursePolicy) {
+      alert('Please define a Course Policy before starting the first session.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -584,62 +601,84 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
               const hasGeofence = !!(displayLat && displayLng && displayRadius);
               
               return (
-                <div className="max-w-md mx-auto bg-brand-bg rounded-xl p-6 text-left space-y-4 border border-brand-border">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <MapPin className={cn("w-5 h-5", hasGeofence ? "text-brand-primary" : "text-orange-500")} />
-                      <h4 className="font-bold text-brand-text">Geofence Status</h4>
-                    </div>
-                    <div className="flex gap-2">
-                      <span className="px-3 py-1 bg-hu-cream text-hu-gold rounded-full text-[10px] font-bold uppercase tracking-widest">
-                        {programs.find(p => p.programId === section.programType)?.name || section.programType}
-                      </span>
-                      <span className="px-3 py-1 bg-hu-cream text-hu-gold rounded-full text-[10px] font-bold uppercase tracking-widest">
-                        {centers.find(c => c.centerId === section.center)?.name || section.center}
-                      </span>
-                      {hasGeofence ? (
-                        <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase tracking-widest">Active</span>
-                      ) : (
-                        <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold uppercase tracking-widest">Bypassed</span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {hasGeofence ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Coordinates</p>
-                          <p className="font-mono font-medium text-brand-text">{parseFloat(displayLat as string).toFixed(4)}, {parseFloat(displayLng as string).toFixed(4)}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Radius</p>
-                          <p className="font-medium text-brand-text">{displayRadius} meters</p>
-                        </div>
+                <div className="space-y-6">
+                  <div className="max-w-md mx-auto bg-brand-bg rounded-xl p-6 text-left space-y-4 border border-brand-border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MapPin className={cn("w-5 h-5", hasGeofence ? "text-brand-primary" : "text-orange-500")} />
+                        <h4 className="font-bold text-brand-text">Geofence Status</h4>
                       </div>
-                      {isEditing ? (
-                        <div className="flex gap-2 pt-2 border-t border-brand-border">
-                          <button 
-                            onClick={() => handleCancelGeofence(selectedSection)}
-                            className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all text-[10px] font-bold uppercase tracking-widest"
-                          >
-                            Cancel
-                          </button>
-                          <button 
-                            onClick={() => handleSaveGeofence(selectedSection)}
-                            className="flex-1 py-2 bg-brand-primary text-white dark:text-hu-charcoal rounded-xl hover:bg-hu-gold transition-all text-[10px] font-bold uppercase tracking-widest"
-                          >
-                            Save Changes
-                          </button>
+                      <div className="flex gap-2">
+                        <span className="px-3 py-1 bg-hu-cream text-hu-gold rounded-full text-[10px] font-bold uppercase tracking-widest">
+                          {programs.find(p => p.programId === section.programType)?.name || section.programType}
+                        </span>
+                        <span className="px-3 py-1 bg-hu-cream text-hu-gold rounded-full text-[10px] font-bold uppercase tracking-widest">
+                          {centers.find(c => c.centerId === section.center)?.name || section.center}
+                        </span>
+                        {hasGeofence ? (
+                          <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase tracking-widest">Active</span>
+                        ) : (
+                          <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold uppercase tracking-widest">Bypassed</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {hasGeofence ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Coordinates</p>
+                            <p className="font-mono font-medium text-brand-text">{parseFloat(displayLat as string).toFixed(4)}, {parseFloat(displayLng as string).toFixed(4)}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Radius</p>
+                            <p className="font-medium text-brand-text">{displayRadius} meters</p>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="flex gap-2 pt-2 border-t border-brand-border">
+                        {isEditing ? (
+                          <div className="flex gap-2 pt-2 border-t border-brand-border">
+                            <button 
+                              onClick={() => handleCancelGeofence(selectedSection)}
+                              className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all text-[10px] font-bold uppercase tracking-widest"
+                            >
+                              Cancel
+                            </button>
+                            <button 
+                              onClick={() => handleSaveGeofence(selectedSection)}
+                              className="flex-1 py-2 bg-brand-primary text-white dark:text-hu-charcoal rounded-xl hover:bg-hu-gold transition-all text-[10px] font-bold uppercase tracking-widest"
+                            >
+                              Save Changes
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2 pt-2 border-t border-brand-border">
+                            <button 
+                              onClick={() => handleSetCurrentLocation(selectedSection)}
+                              className="flex-1 py-2 bg-brand-primary/10 text-brand-primary rounded-xl hover:bg-brand-primary hover:text-white  transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              <span>Update Location</span>
+                            </button>
+                            <button 
+                              onClick={() => handleOpenMap(selectedSection)}
+                              className="flex-1 py-2 bg-hu-gold/10 text-hu-gold rounded-xl hover:bg-hu-gold hover:text-brand-text transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest"
+                            >
+                              <MapIcon className="w-3.5 h-3.5" />
+                              <span>Open Map</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-500">No geofence configured. Students can mark attendance from anywhere.</p>
+                        <div className="flex gap-2">
                           <button 
                             onClick={() => handleSetCurrentLocation(selectedSection)}
                             className="flex-1 py-2 bg-brand-primary/10 text-brand-primary rounded-xl hover:bg-brand-primary hover:text-white  transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest"
                           >
                             <Navigation className="w-3.5 h-3.5" />
-                            <span>Update Location</span>
+                            <span>Current Location</span>
                           </button>
                           <button 
                             onClick={() => handleOpenMap(selectedSection)}
@@ -649,29 +688,36 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                             <span>Open Map</span>
                           </button>
                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Course Policy Section */}
+                  <div className="max-w-md mx-auto bg-brand-bg rounded-xl p-6 text-left space-y-4 border border-brand-border shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className={cn("w-5 h-5", section.coursePolicy ? "text-hu-gold" : "text-orange-500")} />
+                        <h4 className="font-bold text-brand-text">Course Policy</h4>
+                      </div>
+                      {!section.coursePolicy && (
+                        <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded text-[9px] font-bold uppercase">Required</span>
                       )}
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <p className="text-sm text-gray-500">No geofence configured. Students can mark attendance from anywhere.</p>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => handleSetCurrentLocation(selectedSection)}
-                          className="flex-1 py-2 bg-brand-primary/10 text-brand-primary rounded-xl hover:bg-brand-primary hover:text-white  transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest"
-                        >
-                          <Navigation className="w-3.5 h-3.5" />
-                          <span>Current Location</span>
-                        </button>
-                        <button 
-                          onClick={() => handleOpenMap(selectedSection)}
-                          className="flex-1 py-2 bg-hu-gold/10 text-hu-gold rounded-xl hover:bg-hu-gold hover:text-brand-text transition-all flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest"
-                        >
-                          <MapIcon className="w-3.5 h-3.5" />
-                          <span>Open Map</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    <textarea
+                      placeholder="Define the attendance policy and rules (e.g., late threshold, academic integrity)..."
+                      value={editingPolicy[selectedSection] !== undefined ? editingPolicy[selectedSection] : (section.coursePolicy || '')}
+                      onChange={(e) => setEditingPolicy(prev => ({ ...prev, [selectedSection]: e.target.value }))}
+                      className="w-full p-4 bg-white dark:bg-brand-surface border border-brand-border rounded-xl text-xs font-medium focus:border-brand-primary outline-none min-h-[100px] transition-all"
+                    />
+                    {editingPolicy[selectedSection] !== undefined && editingPolicy[selectedSection] !== section.coursePolicy && (
+                      <button 
+                        onClick={() => handleSavePolicy(selectedSection)}
+                        className="w-full py-2 bg-brand-primary text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:brightness-110 transition-all font-sans"
+                      >
+                        Save Policy
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })()}

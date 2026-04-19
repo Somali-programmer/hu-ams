@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { User, Course, Section, ClassSession, Attendance, Semester, Enrollment, AuditLog, ProgramType, Center, CenterInfo, ProgramInfo, BatchInfo } from './types';
-import { MOCK_USERS, MOCK_COURSES, MOCK_SECTIONS, MOCK_SESSIONS, MOCK_ATTENDANCE, MOCK_SEMESTERS, MOCK_ENROLLMENTS, MOCK_CENTERS, MOCK_PROGRAMS, MOCK_BATCHES } from './mockData';
+import { MOCK_USERS, MOCK_COURSES, MOCK_SECTIONS, MOCK_SESSIONS, MOCK_ATTENDANCE, MOCK_SEMESTERS, MOCK_ENROLLMENTS, MOCK_CENTERS, MOCK_PROGRAMS, MOCK_BATCHES, MOCK_HISTORICAL_SECTIONS, MOCK_HISTORICAL_SEMESTERS } from './mockData';
 
 interface AppDataContextType {
   users: User[];
@@ -48,10 +48,10 @@ const AppDataContext = createContext<AppDataContextType | undefined>(undefined);
 export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
   const [courses, setCourses] = useState<Course[]>(MOCK_COURSES);
-  const [sections, setSections] = useState<Section[]>(MOCK_SECTIONS);
+  const [sections, setSections] = useState<Section[]>([...MOCK_SECTIONS, ...MOCK_HISTORICAL_SECTIONS]);
   const [sessions, setSessions] = useState<ClassSession[]>(MOCK_SESSIONS);
   const [attendance, setAttendance] = useState<Attendance[]>(MOCK_ATTENDANCE);
-  const [semesters, setSemesters] = useState<Semester[]>(MOCK_SEMESTERS);
+  const [semesters, setSemesters] = useState<Semester[]>([...MOCK_SEMESTERS, ...MOCK_HISTORICAL_SEMESTERS]);
   const [enrollments, setEnrollments] = useState<Enrollment[]>(MOCK_ENROLLMENTS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [centers, setCenters] = useState<CenterInfo[]>(MOCK_CENTERS);
@@ -83,7 +83,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
         enrollmentId: `enr-${Date.now()}-${section.sectionId}-${student.userId}`,
         studentId: student.userId,
         sectionId: section.sectionId,
-        enrolledAt: new Date().toISOString()
+        enrolledAt: new Date().toISOString(),
+        status: 'active'
       }));
       setEnrollments(prev => [...prev, ...newEnrollments]);
     }
@@ -106,7 +107,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           enrollmentId: `enr-${Date.now()}-${sectionId}-${student.userId}`,
           studentId: student.userId,
           sectionId: sectionId,
-          enrolledAt: new Date().toISOString()
+          enrolledAt: new Date().toISOString(),
+          status: 'active'
         }));
 
         setEnrollments(prev => {
@@ -150,7 +152,8 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
           enrollmentId: `enr-${Date.now()}-${section.sectionId}-${user.userId}`,
           studentId: user.userId,
           sectionId: section.sectionId,
-          enrolledAt: new Date().toISOString()
+          enrolledAt: new Date().toISOString(),
+          status: 'active'
         }));
         setEnrollments(prev => [...prev, ...newEnrollments]);
       }

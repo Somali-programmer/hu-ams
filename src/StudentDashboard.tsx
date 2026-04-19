@@ -17,13 +17,14 @@ interface StudentDashboardProps {
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { sessions, attendance, sections, enrollments, semesters, addAttendance, centers } = useAppData();
+  const { sessions, attendance, sections, enrollments, semesters, addAttendance, centers, courses } = useAppData();
   const [activeSessions, setActiveSessions] = useState<(ClassSession & { section?: Section })[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([]);
   const [token, setToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [policyAccepted, setPolicyAccepted] = useState<Record<string, boolean>>({});
 
   const activeSemester = semesters.find(s => s.isActive);
 
@@ -86,6 +87,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
     setSuccess(null);
 
     try {
+      // 0. Verify Policy Acceptance
+      if (session.section.coursePolicy && !policyAccepted[session.sessionId]) {
+        throw new Error('You must read and agree to the course policy before marking attendance.');
+      }
+
       // 1. Verify Token
       if (token.toUpperCase() !== session.sessionToken.toUpperCase()) {
         throw new Error('Invalid session token.');
@@ -136,6 +142,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         markedAt: new Date().toISOString(),
         location: { latitude, longitude },
         distanceFromCenter: distance,
+        policyAcceptedAt: session.section.coursePolicy ? new Date().toISOString() : undefined,
       };
 
       addAttendance(newAttendance);
@@ -238,7 +245,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                     onClick={() => navigate('/student/schedule')}
                     className="mt-6 w-full py-2 bg-brand-primary text-white dark:text-hu-charcoal rounded-xl text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-colors"
                   >
-                    Join Now
+                    Go to Active Session
                   </button>
                 )}
               </motion.div>
@@ -336,54 +343,71 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
               </div>
             ) : (
               activeSessions.map((session) => (
-                <motion.div 
+                <motion.div
                   key={session.sessionId}
-                  className="hu-card-alt p-4 md:p-6 space-y-8"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="hu-card p-6 flex flex-col md:flex-row gap-6 items-start md:items-center relative overflow-hidden"
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-1">
-                      <h3 className="text-lg md:text-xl font-serif font-bold text-brand-text">{session.section?.courseId}</h3>
-                      <p className="text-sm text-gray-400 font-medium">
-                        Section {session.section?.sectionId} • {centers.find(c => c.centerId === session.section?.center)?.name || session.section?.center}
-                      </p>
+                  <div className="flex-1 space-y-4">
+                    <div>
+                      <h4 className="text-lg font-bold text-brand-text">
+                        {courses.find(c => c.courseId === session.section?.courseId)?.title}
+                      </h4>
+                      <p className="text-xs text-brand-muted font-bold tracking-widest uppercase mt-1">Section {session.section?.room.split(',')[0]} • {centers.find(c => c.centerId === session.section?.center)?.name}</p>
                     </div>
-                    <div className="flex items-center gap-2 text-brand-primary">
-                      <MapPin className="w-4 h-4" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">In Geofence</span>
+
+                    {session.section?.coursePolicy && (
+                      <div className="bg-brand-bg rounded-xl p-4 border border-brand-border space-y-2">
+                        <div className="flex items-center gap-2 text-hu-gold">
+                          <FileText className="w-4 h-4" />
+                          <p className="text-[10px] font-bold uppercase tracking-widest leading-none">Instructor Policy & Rules</p>
+                        </div>
+                        <p className="text-xs text-gray-500 font-medium italic">"{session.section.coursePolicy}"</p>
+                        <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-brand-border/50">
+                          <input 
+                            type="checkbox" 
+                            checked={!!policyAccepted[session.sessionId]}
+                            onChange={(e) => setPolicyAccepted(prev => ({ ...prev, [session.sessionId]: e.target.checked }))}
+                            className="w-4 h-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary"
+                          />
+                          <span className="text-[10px] font-bold text-brand-text uppercase tracking-wide">I understand and agree to this policy</span>
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2 text-xs font-bold text-brand-text">
+                        <Clock className="w-4 h-4 text-brand-primary" />
+                        <span>Ends at {session.endTime ? format(new Date(session.endTime), 'hh:mm a') : 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs font-bold text-brand-text">
+                        <MapPin className="w-4 h-4 text-brand-primary" />
+                        <span>Within {session.section?.geofenceRadius}m Range</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Session Code</label>
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <input 
-                        type="text" 
+                  <div className="w-full md:w-auto p-4 bg-brand-bg rounded-2xl border border-brand-border space-y-4">
+                    <div className="text-center space-y-1">
+                      <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Entry Token</p>
+                      <input
+                        type="text"
+                        placeholder="000000"
                         maxLength={6}
                         value={token}
                         onChange={(e) => setToken(e.target.value.toUpperCase())}
-                        placeholder="ENTER CODE"
-                        className="w-full md:flex-1 bg-hu-cream/30 border-none rounded-xl px-6 py-4 text-lg font-mono font-bold tracking-[0.5em] focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all placeholder:tracking-normal placeholder:text-xs placeholder:font-sans"
+                        className="w-full text-center py-2 bg-white dark:bg-brand-surface border border-brand-border rounded-xl font-mono text-xl font-bold tracking-[0.2em] outline-none focus:border-brand-primary uppercase"
                       />
-                      <button 
-                        onClick={() => handleMarkAttendance(session)}
-                        disabled={loading || !token}
-                        className="hu-button-rounded w-full md:w-auto px-8 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                      >
-                        {loading ? '...' : 'Mark Presence'}
-                      </button>
                     </div>
+                    <button
+                      onClick={() => handleMarkAttendance(session)}
+                      disabled={loading || !token || (session.section?.coursePolicy && !policyAccepted[session.sessionId])}
+                      className="w-full py-3 bg-brand-primary text-white dark:text-hu-charcoal rounded-xl text-xs font-bold uppercase tracking-[0.2em] shadow-lg shadow-brand-primary/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                    >
+                      {loading ? 'Verifying...' : 'Mark Present'}
+                    </button>
                   </div>
-
-                  {error && (
-                    <div className="p-4 bg-red-50 text-red-600 rounded-xl text-xs font-bold flex items-center gap-3">
-                      <AlertCircle className="w-4 h-4" /> {error}
-                    </div>
-                  )}
-                  {success && (
-                    <div className="p-4 bg-brand-primary/10 text-brand-primary rounded-xl text-xs font-bold flex items-center gap-3">
-                      <CheckCircle2 className="w-4 h-4" /> {success}
-                    </div>
-                  )}
                 </motion.div>
               ))
             )}
@@ -425,77 +449,91 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         </>
       )}
       {view === 'attendance' && (
-        <section className="space-y-6 md:space-y-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl md:text-3xl font-serif font-bold text-brand-text">Attendance History</h2>
-            <button className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-brand-primary hover:text-brand-text transition-colors">View All Records</button>
-          </div>
-          
-          <div className="hu-card-alt overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[600px]">
-                <thead>
-                  <tr className="bg-hu-cream/30">
-                    <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-brand-muted whitespace-nowrap">Date</th>
-                    <th className="px-4 py-4 md:px-8 md:py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-brand-muted whitespace-nowrap">Course</th>
-                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-brand-muted whitespace-nowrap">Status</th>
-                    <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-brand-muted whitespace-nowrap">Time</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-brand-border">
-                  {attendanceHistory.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-8 py-20 text-center whitespace-nowrap">
-                        <div className="max-w-xs mx-auto space-y-4">
-                          <div className="w-12 h-12 md:w-16 md:h-16 bg-hu-cream rounded-full flex items-center justify-center mx-auto text-hu-gold">
-                            <AlertCircle className="w-8 h-8" />
-                          </div>
-                          <p className="text-gray-400 font-medium">No attendance records found in the localized archive.</p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    attendanceHistory.map((record, i) => (
-                      <motion.tr 
-                        key={record.attendanceId}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
-                        className="hover:bg-brand-surface transition-colors group"
-                      >
-                        <td className="px-8 py-6 whitespace-nowrap">
-                          <p className="text-sm font-bold text-brand-text">
-                            {format(new Date(record.markedAt), 'MMM dd, yyyy')}
-                          </p>
-                        </td>
-                        <td className="px-8 py-6 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-brand-text">Database Systems</span>
-                            <span className="text-[10px] font-bold text-gray-black/40 uppercase tracking-widest">CS-301</span>
-                          </div>
-                        </td>
-                        <td className="px-8 py-6 whitespace-nowrap">
-                          <span className={cn(
-                            "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest inline-flex items-center gap-2",
-                            record.status === 'present' 
-                              ? "bg-brand-primary/10 text-brand-primary border border-brand-primary/20" 
-                              : "bg-red-50 text-red-600 border border-red-100"
-                          )}>
-                            <div className={cn("w-1.5 h-1.5 rounded-full", record.status === 'present' ? "bg-brand-primary" : "bg-red-600")} />
-                            {record.status}
-                          </span>
-                        </td>
-                        <td className="px-8 py-6 whitespace-nowrap">
-                          <p className="text-sm font-medium text-gray-400 group-hover:text-brand-text transition-colors">
-                            {format(new Date(record.markedAt), 'hh:mm a')}
-                          </p>
-                        </td>
-                      </motion.tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+        <section className="space-y-8">
+          <div className="flex justify-between items-end">
+            <div className="space-y-1">
+              <p className="hu-label">Academic Portfolio</p>
+              <h2 className="text-3xl font-serif font-bold text-brand-text">Academic Record</h2>
             </div>
+            <button 
+              onClick={handleDownloadReport}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-bg border border-brand-border rounded-xl text-xs font-bold text-brand-text uppercase tracking-widest hover:bg-brand-surface transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download Transcript
+            </button>
+          </div>
+
+          <div className="space-y-8">
+            {semesters
+              .sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+              .map(semester => {
+                const semesterEnrollments = enrollments.filter(e => {
+                  const section = sections.find(sec => sec.sectionId === e.sectionId);
+                  return e.studentId === user?.userId && section?.semesterId === semester.semesterId;
+                });
+
+                if (semesterEnrollments.length === 0) return null;
+
+                return (
+                  <motion.div 
+                    key={semester.semesterId}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-hu-cream flex items-center justify-center text-hu-gold font-bold text-xs ring-1 ring-hu-gold/20">
+                        {semester.isActive ? "C" : "P"}
+                      </div>
+                      <h3 className="text-lg font-serif font-bold text-brand-text">{semester.name} {semester.isActive && "(Current)"}</h3>
+                    </div>
+                    
+                    <div className="hu-card overflow-hidden border border-brand-border/50">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead>
+                            <tr className="bg-brand-surface/30">
+                              <th className="px-6 py-4 text-[10px] font-bold text-brand-muted uppercase tracking-widest">Course</th>
+                              <th className="px-6 py-4 text-[10px] font-bold text-brand-muted uppercase tracking-widest text-center">Cr. Hrs</th>
+                              <th className="px-6 py-4 text-[10px] font-bold text-brand-muted uppercase tracking-widest text-center">Status</th>
+                              <th className="px-6 py-4 text-[10px] font-bold text-brand-muted uppercase tracking-widest text-center">Grade</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-brand-border">
+                            {semesterEnrollments.map((enr) => {
+                              const section = sections.find(s => s.sectionId === enr.sectionId);
+                              const course = courses.find(c => c.courseId === section?.courseId);
+                              return (
+                                <tr key={enr.enrollmentId} className="hover:bg-brand-bg transition-colors group">
+                                  <td className="px-6 py-4">
+                                    <p className="text-sm font-bold text-brand-text group-hover:text-brand-primary transition-colors">{course?.title}</p>
+                                    <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest">{course?.courseCode} • Sec {section?.room.split(',')[0]}</p>
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    <span className="text-xs font-mono font-bold text-brand-text">{course?.creditHours}</span>
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    <span className={cn(
+                                      "px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest",
+                                      enr.status === 'completed' ? "bg-green-100 text-green-700" : "bg-brand-primary/10 text-brand-primary"
+                                    )}>
+                                      {enr.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    <span className="text-sm font-serif font-bold text-hu-gold">{enr.grade || '-'}</span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
           </div>
         </section>
       )}

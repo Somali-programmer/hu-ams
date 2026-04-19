@@ -511,6 +511,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
       return;
     }
 
+    // Uniqueness Check: Prevent duplicate course sections for the same batch EVER (as per requirement: "can't have repetitive Bach if they take before now")
+    const existingEntry = sections.find(s => 
+      s.courseId === sectionForm.courseId && 
+      s.batchId === sectionForm.batchId && 
+      s.sectionId !== editingSection?.sectionId
+    );
+
+    if (existingEntry) {
+      const course = courses.find(c => c.courseId === sectionForm.courseId);
+      const batch = batches.find(b => b.batchId === sectionForm.batchId);
+      const semester = semesters.find(sem => sem.semesterId === existingEntry.semesterId);
+      alert(`Conflict Error: A section for "${course?.title}" and "${batch?.name || 'All Batches'}" was already assigned in ${semester?.name || 'the system'}. Repetitive course assignments for the same batch are prohibited.`);
+      return;
+    }
+
     if (editingSection) {
       updateSection(editingSection.sectionId, sectionForm);
 

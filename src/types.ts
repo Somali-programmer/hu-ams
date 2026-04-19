@@ -75,6 +75,8 @@ export interface Enrollment {
   studentId: string;
   sectionId: string;
   enrolledAt: string;
+  grade?: string; // To track passed courses
+  status: 'active' | 'completed' | 'dropped';
 }
 
 export interface Section {
@@ -97,6 +99,7 @@ export interface Section {
     longitude: number;
   };
   geofenceRadius: number; // in meters
+  coursePolicy?: string; // Policy defined by instructor
 }
 
 export interface ClassSession {
@@ -120,6 +123,7 @@ export interface Attendance {
     longitude: number;
   };
   distanceFromCenter: number;
+  policyAcceptedAt?: string; // Timestamp when student agreed to course policy
 }
 
 export interface AuditLog {
