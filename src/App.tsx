@@ -9,6 +9,8 @@ import InstructorDashboard from './InstructorDashboard';
 import AdminDashboard from './AdminDashboard';
 import QAOfficerDashboard from './QAOfficerDashboard';
 import Profile from './Profile';
+import Documentation from './pages/Documentation';
+import SystemArchitecture from './pages/SystemArchitecture';
 import ErrorBoundary from './components/ErrorBoundary';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -97,6 +99,9 @@ export default function App() {
               {/* Student Routes */}
               <Route path="/student/attendance" element={<ProtectedRoute><Layout><StudentDashboard view="attendance" /></Layout></ProtectedRoute>} />
               <Route path="/student/schedule" element={<ProtectedRoute><Layout><StudentDashboard view="schedule" /></Layout></ProtectedRoute>} />
+
+              <Route path="/documentation" element={<Layout><Documentation /></Layout>} />
+              <Route path="/architecture" element={<Layout><SystemArchitecture /></Layout>} />
 
               <Route
                 path="/profile"

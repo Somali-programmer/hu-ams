@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
+import Footer from './components/Footer';
 import { Menu, ShieldCheck, LogOut, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink } from 'react-router-dom';
@@ -188,19 +189,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {children}
       </main>
 
-      <footer className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-10 py-4 md:py-6 border-t border-brand-border w-full transition-colors mt-auto">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6">
-          <p className="text-brand-muted text-xs md:text-sm font-medium transition-colors">
-            &copy; 2026 Haramaya University. All rights reserved.
-          </p>
-          <div className="flex flex-wrap justify-center items-center gap-4 md:gap-8 text-center md:text-left">
-            <button onClick={() => setActiveModal('attendance')} className="text-[9px] md:text-xs font-bold uppercase tracking-widest text-brand-muted hover:text-brand-primary transition-colors">CS Dept. Policy</button>
-            <button onClick={() => setActiveModal('privacy')} className="text-[9px] md:text-xs font-bold uppercase tracking-widest text-brand-muted hover:text-brand-primary transition-colors">Privacy</button>
-            <button onClick={() => setActiveModal('terms')} className="text-[9px] md:text-xs font-bold uppercase tracking-widest text-brand-muted hover:text-brand-primary transition-colors">Terms</button>
-            <button onClick={() => setActiveModal('support')} className="text-[9px] md:text-xs font-bold uppercase tracking-widest text-brand-muted hover:text-brand-primary transition-colors">Support</button>
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Policy Modals */}
       <AnimatePresence>
