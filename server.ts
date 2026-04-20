@@ -3,7 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { supabaseAdmin } from './server/db/supabase';
+import { supabaseAdmin } from './server/db/supabase.ts';
 
 dotenv.config();
 
