@@ -26,13 +26,18 @@ CREATE TABLE programs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
     name TEXT NOT NULL, -- e.g., Regular, Extension
+    duration_years INTEGER DEFAULT 4,
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(department_id, name)
 );
 
 CREATE TABLE centers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL UNIQUE, -- e.g., Main Campus, Jigjiga, Harar
-    location_metadata JSONB -- Stores default coords for campus
+    location_metadata JSONB, -- Stores default coords for campus
+    description TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE batches (
@@ -40,6 +45,10 @@ CREATE TABLE batches (
     program_id UUID REFERENCES programs(id) ON DELETE CASCADE,
     entry_year INTEGER NOT NULL,
     name TEXT NOT NULL, -- e.g., 2023 Batch
+    current_year INTEGER DEFAULT 1,
+    current_semester INTEGER DEFAULT 1,
+    expected_graduation TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(program_id, name)
 );
 
@@ -74,7 +83,16 @@ CREATE TABLE student_profiles (
     id_number TEXT NOT NULL UNIQUE,
     batch_id UUID REFERENCES batches(id) ON DELETE SET NULL,
     center_id UUID REFERENCES centers(id) ON DELETE SET NULL,
-    department_id UUID REFERENCES departments(id) ON DELETE SET NULL
+    department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE staff_profiles (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    department_id UUID REFERENCES departments(id) ON DELETE SET NULL,
+    office_location TEXT,
+    bio TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Academic Workflow
@@ -85,9 +103,18 @@ CREATE TABLE sections (
     semester_id UUID REFERENCES semesters(id) ON DELETE CASCADE,
     batch_id UUID REFERENCES batches(id) ON DELETE CASCADE,
     center_id UUID REFERENCES centers(id) ON DELETE CASCADE,
+    program_id UUID REFERENCES programs(id) ON DELETE CASCADE,
+    room TEXT,
+    schedule JSONB DEFAULT '[]', -- Array of {dayOfWeek, startTime, endTime}
+    start_date DATE,
+    end_date DATE,
+    meeting_dates JSONB DEFAULT '[]',
+    mid_exam_dates JSONB DEFAULT '[]',
+    final_exam_dates JSONB DEFAULT '[]',
     geofence_config JSONB, -- {lat, lng, radius}
     course_policy TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(course_id, semester_id, batch_id, center_id)
 );
 
 CREATE TABLE enrollments (
@@ -133,7 +160,55 @@ CREATE TABLE audit_logs (
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. ROW LEVEL SECURITY (RLS) - Example for Attendance
+-- 5. AUTO-ENROLLMENT TRIGGERS (Declarative Architecture)
+
+-- Function: Auto-enroll student into active sections when a student profile is created or updated
+CREATE OR REPLACE FUNCTION sync_enrollment_on_student_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.batch_id IS NOT NULL AND NEW.center_id IS NOT NULL THEN
+        INSERT INTO enrollments (student_id, section_id, enrolled_at, status)
+        SELECT NEW.user_id, sec.id, NOW(), 'active'
+        FROM sections sec
+        WHERE sec.batch_id = NEW.batch_id
+          AND sec.center_id = NEW.center_id
+        ON CONFLICT (student_id, section_id) DO NOTHING;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_sync_enrollment_student
+AFTER INSERT OR UPDATE OF batch_id, center_id
+ON student_profiles
+FOR EACH ROW
+EXECUTE FUNCTION sync_enrollment_on_student_change();
+
+
+-- Function: Auto-enroll all matching students when a new section is created or updated
+CREATE OR REPLACE FUNCTION sync_enrollment_on_section_change()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.batch_id IS NOT NULL AND NEW.center_id IS NOT NULL THEN
+        INSERT INTO enrollments (student_id, section_id, enrolled_at, status)
+        SELECT sp.user_id, NEW.id, NOW(), 'active'
+        FROM student_profiles sp
+        WHERE sp.batch_id = NEW.batch_id
+          AND sp.center_id = NEW.center_id
+        ON CONFLICT (student_id, section_id) DO NOTHING;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_sync_enrollment_section
+AFTER INSERT OR UPDATE OF batch_id, center_id
+ON sections
+FOR EACH ROW
+EXECUTE FUNCTION sync_enrollment_on_section_change();
+
+
+-- 6. ROW LEVEL SECURITY (RLS) - Example for Attendance
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 
 -- Students can read their own attendance

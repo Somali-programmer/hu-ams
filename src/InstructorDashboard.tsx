@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Clock, Play, Filter, Search, Users, BarChart3, Calendar, 
   FileText, CheckCircle2, AlertCircle, CalendarDays, Download,
-  MapPin, Maximize2, Navigation, X, Map as MapIcon, BookOpen
+  MapPin, Maximize2, Navigation, X, Map as MapIcon, BookOpen,
+  ShieldCheck
 } from 'lucide-react';
 import { format, addMinutes } from 'date-fns';
 import AnalyticsCard from './components/AnalyticsCard';
@@ -233,8 +234,14 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
     if (!section) return;
 
     if (!section.coursePolicy) {
-      alert('Please define a Course Policy before starting the first session.');
-      return;
+      const confirmDefault = confirm('No Course Policy defined. Would you like to use the standard university attendance policy and start the session?');
+      if (confirmDefault) {
+        const defaultPolicy = 'Standard Haramaya University Attendance Policy: Students must maintain 80% attendance to sit for final exams. Professional conduct is expected during all sessions.';
+        await updateSection(selectedSection, { coursePolicy: defaultPolicy });
+        // After updating, we continue to start session
+      } else {
+        return;
+      }
     }
 
     setLoading(true);
@@ -242,7 +249,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
       const token = generateSessionToken();
       
       // Dynamic policy based on program type
-      const isExtension = programs.find(p => p.programId === section.programType)?.name.toLowerCase() === 'extension';
+      const isExtension = programs.find(p => p.programId === section.programType)?.name?.toLowerCase() === 'extension';
       const tokenExpiryMinutes = isExtension ? 30 : 15;
       const sessionDurationMinutes = isExtension ? 180 : 90;
 
@@ -561,7 +568,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                     const programName = programs.find(p => p.programId === s.programType)?.name || s.programType;
                     return (
                         <option key={s.sectionId} value={s.sectionId}>
-                        {s.room} • {s.sectionId.split('-')[1]} • {courses.find(c => c.courseId === s.courseId)?.title} • {center?.name || s.center.toUpperCase()} ({programName})
+                        {s.room} • {s.sectionId.split('-')[1]} • {courses.find(c => c.courseId === s.courseId)?.title} • {center?.name || s.center?.toUpperCase() || 'N/A'} ({programName})
                       </option>
                     );
                   })}
@@ -881,7 +888,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                               record.status === 'late' ? "bg-orange-50 text-orange-600 border-orange-100" :
                               "bg-red-50 text-red-600 border-red-100"
                             )}>
-                              {record.status === 'present' ? 'Verified' : record.status.toUpperCase()}
+                              {record.status === 'present' ? 'Verified' : (record.status?.toUpperCase() || 'ABSENT')}
                             </span>
                           ) : (
                             <span className="px-4 py-1.5 bg-brand-bg text-gray-400 rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-border">
@@ -984,6 +991,29 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                       <p className="text-xs font-bold text-brand-text mt-1">{enrolledCount} Enrolled</p>
                     </div>
                   </div>
+
+                  {/* Course Policy Section */}
+                  <div className="pt-6 mt-6 border-t border-brand-border space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-hu-gold" />
+                        <h4 className="text-sm font-bold text-brand-text uppercase tracking-widest">Attendance Policy</h4>
+                      </div>
+                      <button 
+                        onClick={() => handleSavePolicy(section.sectionId)}
+                        className="text-[10px] font-bold text-brand-primary uppercase tracking-widest hover:underline"
+                      >
+                        Save Policy
+                      </button>
+                    </div>
+                    <textarea 
+                      className="w-full bg-brand-bg border border-brand-border rounded-xl p-4 text-xs font-medium focus:outline-none focus:border-brand-primary min-h-[100px] italic"
+                      placeholder="Enter attendance rules, threshold requirements, etc..."
+                      value={editingPolicy[section.sectionId] ?? section.coursePolicy ?? ''}
+                      onChange={(e) => setEditingPolicy(prev => ({ ...prev, [section.sectionId]: e.target.value }))}
+                    />
+                  </div>
+
                   {section.meetingDates && section.meetingDates.length > 0 && (
                     <div className="pt-4 border-t border-brand-border">
                       <p className="hu-label mb-2">Specific Meeting Weekends</p>
@@ -1677,7 +1707,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Schedule Blocks</label>
                     <div className="flex gap-2">
-                      {programs.find(p => p.programId === sections.find(s => s.sectionId === editingScheduleSectionId)?.programType)?.name.toLowerCase() === 'extension' && (
+                      {programs.find(p => p.programId === sections.find(s => s.sectionId === editingScheduleSectionId)?.programType)?.name?.toLowerCase() === 'extension' && (
                         <button
                           type="button"
                           onClick={() => setTempSchedule([

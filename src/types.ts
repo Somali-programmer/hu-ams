@@ -20,6 +20,7 @@ export interface ProgramInfo {
   programId: string;
   name: string;
   durationYears: number;
+  departmentId?: string;
   description?: string;
   createdAt: string;
 }
@@ -29,7 +30,9 @@ export interface BatchInfo {
   name: string; // e.g., "Year 3 (2015 Entry)"
   entryYear: string;
   currentYear: number;
+  currentSemester?: number;
   expectedGraduation: string;
+  programId?: string;
   createdAt: string;
 }
 
@@ -49,6 +52,7 @@ export interface User {
   phone?: string;
   createdAt: string;
   isActive: boolean;
+  departmentId?: string;
   programType?: ProgramType;
   center?: Center;
   batch?: string;
@@ -60,6 +64,7 @@ export interface Course {
   title: string;
   creditHours: number;
   department: string;
+  departmentId?: string;
 }
 
 export interface Semester {

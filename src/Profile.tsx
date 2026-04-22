@@ -41,7 +41,11 @@ const Profile: React.FC = () => {
                 { label: 'Department', value: user.department, icon: Building },
                 { label: 'Phone Number', value: user.phone || 'Not provided', icon: Phone },
                 { label: 'Account Status', value: 'Active', icon: Shield, color: 'text-brand-primary' },
-                { label: 'Joined On', value: format(new Date(user.createdAt), 'MMMM dd, yyyy'), icon: Calendar }
+                { 
+                  label: 'Joined On', 
+                  value: user.createdAt ? format(new Date(user.createdAt), 'MMMM dd, yyyy') : 'N/A', 
+                  icon: Calendar 
+                }
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-brand-primary/10 rounded-2xl flex items-center justify-center text-brand-primary shadow-inner">

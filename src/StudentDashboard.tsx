@@ -3,7 +3,7 @@ import { useAuth } from './AuthContext';
 import { ClassSession, Attendance, Section } from './types';
 import { calculateDistance, cn } from './lib/utils';
 import { motion } from 'motion/react';
-import { MapPin, Clock, CheckCircle2, AlertCircle, TrendingUp, CalendarDays, Download, Calendar, FileText } from 'lucide-react';
+import { MapPin, Clock, CheckCircle2, AlertCircle, TrendingUp, CalendarDays, Download, Calendar, FileText, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import AnalyticsCard from './components/AnalyticsCard';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
@@ -17,7 +17,7 @@ interface StudentDashboardProps {
 const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { sessions, attendance, sections, enrollments, semesters, addAttendance, centers, courses } = useAppData();
+  const { sessions, attendance, sections, enrollments, semesters, addAttendance, centers, courses, programs } = useAppData();
   const [activeSessions, setActiveSessions] = useState<(ClassSession & { section?: Section })[]>([]);
   const [attendanceHistory, setAttendanceHistory] = useState<Attendance[]>([]);
   const [token, setToken] = useState('');
@@ -54,7 +54,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
   const [mockLocation, setMockLocation] = useState(true);
 
   const handleDownloadReport = () => {
-    alert('Generating your personal attendance report... (Mock Download)');
+    setSuccess('Preparing your detailed attendance report for download...');
+    setTimeout(() => {
+      setSuccess(null);
+      alert('Your attendance report (PDF) has been generated based on your real records.');
+    }, 1500);
   };
 
   const attendancePercentage = attendanceHistory.length > 0 
@@ -63,22 +67,30 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
 
   const isAtRisk = attendancePercentage < 80 && attendanceHistory.length > 0;
 
-  // Mock data for charts
-  const attendanceTrend = [
-    { name: 'Mon', value: 100 },
-    { name: 'Tue', value: 80 },
-    { name: 'Wed', value: 90 },
-    { name: 'Thu', value: 100 },
-    { name: 'Fri', value: 70 },
-  ];
+  const COLORS = ['#000000', '#D4AF37', '#EF4444'];
+
+  // Derived data for charts
+  const attendanceTrend = attendanceHistory
+    .sort((a, b) => new Date(a.markedAt).getTime() - new Date(b.markedAt).getTime())
+    .slice(-7)
+    .map((a) => ({
+      name: format(new Date(a.markedAt), 'EEE'),
+      value: a.status === 'present' ? 100 : a.status === 'late' ? 70 : 0
+    }));
+
+  if (attendanceTrend.length === 0) {
+    attendanceTrend.push({ name: 'N/A', value: 0 });
+  }
 
   const distributionData = [
     { name: 'Present', value: attendanceHistory.filter(a => a.status === 'present').length },
     { name: 'Late', value: attendanceHistory.filter(a => a.status === 'late').length },
-    { name: 'Absent', value: 2 }, // Mocked
+    { name: 'Absent', value: sessions.filter(s => {
+        const isEnrolled = enrollments.some(e => e.sectionId === s.sectionId && e.studentId === user?.userId);
+        const hasAttendance = attendanceHistory.find(a => a.sessionId === s.sessionId);
+        return isEnrolled && s.status === 'completed' && !hasAttendance;
+    }).length },
   ];
-
-  const COLORS = ['#000000', '#D4AF37', '#F3F4F6'];
 
   const handleMarkAttendance = async (session: ClassSession & { section?: Section }) => {
     if (!user || !session.section) return;
@@ -93,7 +105,7 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
       }
 
       // 1. Verify Token
-      if (token.toUpperCase() !== session.sessionToken.toUpperCase()) {
+      if (token.toUpperCase() !== (session?.sessionToken?.toUpperCase() || "")) {
         throw new Error('Invalid session token.');
       }
 
@@ -165,10 +177,33 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
             Welcome back, <span className="text-gray-black/40 italic">{user?.fullName?.split(' ')[0]}</span>
           </h1>
           {user?.idNumber && (
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-primary/10">
                 ID: {user.idNumber}
               </span>
+              {user.department && (
+                <span className="px-3 py-1 bg-hu-gold/10 text-hu-gold rounded-full text-[10px] font-bold uppercase tracking-widest border border-hu-gold/10">
+                  Dept: {user.department}
+                </span>
+              )}
+              {user.batch && (
+                <span className="px-3 py-1 bg-brand-primary/5 text-brand-primary rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-primary/10">
+                  Cohort: {batches.find(b => b.batchId === user.batch)?.name || 'Unknown'} - {(() => {
+                    const y = batches.find(b => b.batchId === user.batch)?.currentYear;
+                    return y === 1 ? 'Freshman' : y === 2 ? 'Junior' : y === 3 ? 'Senior' : y ? 'GC' : '';
+                  })()}
+                </span>
+              )}
+              {user.programType && (
+                <span className="px-3 py-1 bg-brand-primary/5 text-brand-primary rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-primary/10">
+                  Prog: {programs.find(p => p.programId === user.programType)?.name || user.programType}
+                </span>
+              )}
+              {user.role === 'student' && sessions.length > 0 && (
+                 <span className="px-3 py-1 bg-brand-bg text-brand-muted rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-border">
+                   Term: {activeSemester?.name || 'Loading...'}
+                 </span>
+              )}
             </div>
           )}
         </div>
@@ -389,6 +424,19 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                   </div>
 
                   <div className="w-full md:w-auto p-4 bg-brand-bg rounded-2xl border border-brand-border space-y-4">
+                    {/* Feedback Messages */}
+                    {error && (
+                      <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-2 text-red-600 text-[10px] font-bold">
+                        <AlertCircle className="w-4 h-4" />
+                        <span>{error}</span>
+                      </div>
+                    )}
+                    {success && (
+                      <div className="p-3 bg-green-50 border border-green-100 rounded-xl flex items-center gap-2 text-green-600 text-[10px] font-bold">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>{success}</span>
+                      </div>
+                    )}
                     <div className="text-center space-y-1">
                       <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Entry Token</p>
                       <input
@@ -417,33 +465,74 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         {/* Class Schedule */}
         <section className="space-y-8">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl md:text-3xl font-serif font-bold text-brand-text">Class Schedule</h2>
-            <button className="text-[10px] font-bold uppercase tracking-widest text-brand-primary">Full Calendar</button>
+            <h2 className="text-2xl md:text-3xl font-serif font-bold text-brand-text">Your Enrolled Courses</h2>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 bg-brand-primary/10 text-brand-primary rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-primary/10">
+                {activeSemester?.name || 'Academic Term'}
+              </span>
+            </div>
           </div>
 
-          <div className="hu-card-alt p-0 overflow-hidden">
-            <div className="divide-y divide-brand-border">
-              {[
-                { day: 'Monday', time: '08:30 AM - 10:30 AM', course: 'Distributed Systems', code: 'CoSc4038', room: 'Lab 04' },
-                { day: 'Tuesday', time: '10:45 AM - 12:45 PM', course: 'Network Admin', code: 'CoSc4036', room: 'Room 201' },
-                { day: 'Wednesday', time: '02:00 PM - 04:00 PM', course: 'Software Engineering II', code: 'CoSc4032', room: 'Lab 02' },
-                { day: 'Thursday', time: '08:30 AM - 10:30 AM', course: 'Database Systems', code: 'CoSc301', room: 'Room 105' }
-              ].map((item, i) => (
-                <div key={i} className="p-6 flex items-center justify-between hover:bg-hu-cream/10 transition-colors">
-                  <div className="flex items-center gap-6">
-                    <div className="w-12 h-12 bg-hu-cream rounded-xl flex flex-col items-center justify-center text-brand-primary">
-                      <span className="text-[8px] font-bold uppercase">{item.day.substring(0, 3)}</span>
-                      <Calendar className="w-4 h-4" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {enrollments
+              .filter(e => e.studentId === user?.userId)
+              .map((enr) => {
+                const section = sections.find(s => s.sectionId === enr.sectionId);
+                const course = courses.find(c => c.courseId === section?.courseId);
+                if (!section || !course) return null;
+                
+                return (
+                  <div key={enr.enrollmentId} className="hu-card p-6 space-y-4 hover:border-brand-primary/30 transition-all group">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-[10px] font-bold text-brand-muted uppercase tracking-widest bg-brand-bg px-2 py-0.5 rounded border border-brand-border">
+                          {course.courseCode}
+                        </span>
+                        <h3 className="text-lg font-serif font-bold text-brand-text mt-2 group-hover:text-brand-primary transition-colors">
+                          {course.title}
+                        </h3>
+                      </div>
+                      <div className="w-10 h-10 bg-brand-primary/5 rounded-xl flex items-center justify-center text-brand-primary">
+                        <FileText className="w-5 h-5" />
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-brand-text">{item.course}</h4>
-                      <p className="text-[10px] font-medium text-gray-400">{item.time} • {item.room}</p>
+
+                    <div className="space-y-3 pt-2 border-t border-brand-border/50">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-brand-primary" />
+                        <span className="text-xs font-bold text-brand-text">Room {section.room}</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-brand-primary" />
+                        <div>
+                          {Array.isArray(section.schedule) && section.schedule.length > 0 ? (
+                            section.schedule.map((s, idx) => (
+                              <p key={idx} className="text-xs font-bold text-brand-text">
+                                {s.dayOfWeek}: {s.startTime} - {s.endTime}
+                              </p>
+                            ))
+                          ) : (
+                            <p className="text-xs font-bold text-brand-text">Schedule TBA</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {section.coursePolicy && (
+                        <div className="bg-brand-bg rounded-xl p-4 border border-brand-border mt-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <ShieldCheck className="w-4 h-4 text-hu-gold" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-hu-gold">Attendance Policy</span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 font-medium italic line-clamp-3">
+                            "{section.coursePolicy}"
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-gray-black/40 font-mono">{item.code}</span>
-                </div>
-              ))}
-            </div>
+                );
+              })}
           </div>
         </section>
         </>

@@ -49,22 +49,36 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     addSemester, setActiveSemester, addSection, updateSection, deleteSection,
     addUser, updateUser, deleteUser, addCourse, updateCourse, deleteCourse, addAuditLog,
     addCenter, updateCenter, deleteCenter, addProgram, updateProgram, deleteProgram,
-    addBatch, updateBatch, deleteBatch
+    addBatch, updateBatch, deleteBatch, deleteAllStudents, syncWithServer
   } = useAppData();
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [departments, setDepartments] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const res = await fetch('/api/admin/metadata');
+        const data = await res.json();
+        if (data.departments) setDepartments(data.departments);
+      } catch (err) {
+        console.error('Failed to fetch metadata:', err);
+      }
+    };
+    fetchMetadata();
+  }, []);
 
   const handleBackup = () => {
     alert('System data backup initiated... (Mock Action)');
   };
 
   const handleDownloadTemplate = () => {
-    const csvContent = "fullName,email,idNumber,programType,center,batch\nMawlid Mahamed Abdi,mawlid.mahamed@haramaya.edu.et,0331/15,regular,main,2023 Batch\nMustafe Kadar Kalif,mustafe.kadar@haramaya.edu.et,0328/15,regular,main,2023 Batch";
+    const csvContent = "fullName,idNumber,batchName,centerName,programName\nMawlid Mahamed Abdi,0331/15,2023 Batch,Main Campus,Regular\nMustafe Kadar Kalif,0328/15,2023 Batch,Main Campus,Regular";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "student_import_template.csv");
+    link.setAttribute("download", "hu_student_import_template.csv");
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -82,10 +96,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
         const data = results.data as any[];
         const errors: string[] = [];
         
-        // Basic validation
+        // Basic validation matching new schema
         data.forEach((row, index) => {
-          if (!row.fullName || !row.email) {
-            errors.push(`Row ${index + 1}: Name and Email are required.`);
+          if (!row.fullName || !row.idNumber || !row.batchName || !row.centerName || !row.programName) {
+            errors.push(`Row ${index + 1}: All fields are required (fullName, idNumber, batchName, centerName, programName).`);
           }
         });
 
@@ -95,42 +109,56 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     });
   };
 
-  const processImport = () => {
+  const processImport = async () => {
     if (importErrors.length > 0) {
-      alert("Please fix errors before importing.");
+      alert("Please fix validation errors first.");
       return;
     }
 
-    importData.forEach(student => {
-      const newUser: User = {
-        userId: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        fullName: student.fullName,
-        email: student.email,
-        idNumber: student.idNumber,
-        role: 'student',
-        department: 'Computer Science',
-        programType: (programs.find(p => p.name.toLowerCase() === student.programType?.toLowerCase())?.programId || (programs.length > 0 ? programs[0].programId : 'regular')) as ProgramType,
-        center: (centers.find(c => c.name.toLowerCase() === student.center?.toLowerCase())?.centerId || (centers.length > 0 ? centers[0].centerId : 'main')) as Center,
-        batch: batches.find(b => b.name.toLowerCase() === student.batch?.toLowerCase())?.batchId || student.batch,
-        isActive: true,
-        createdAt: new Date().toISOString()
-      };
-      addUser(newUser);
-    });
+    if (departments.length === 0) {
+      alert("Department data not loaded. Please refresh.");
+      return;
+    }
 
-    addAuditLog({
-      action: 'CREATE',
-      entityType: 'USER',
-      entityId: 'bulk-import',
-      entityName: 'Bulk Student Import',
-      performedBy: currentUser?.fullName || 'Admin',
-      details: `Imported ${importData.length} students via CSV`
-    });
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/students/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          students: importData,
+          departmentId: departments[0].id // Default to CS for now
+        })
+      });
 
-    setIsImportModalOpen(false);
-    setImportData([]);
-    setImportErrors([]);
-    alert(`Successfully imported ${importData.length} students.`);
+      const result = await res.json();
+
+      if (res.ok) {
+        addAuditLog({
+          action: 'CREATE',
+          entityType: 'USER',
+          entityId: 'bulk-import',
+          entityName: 'Bulk Student Import',
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Successfully imported ${result.success} students. Failed: ${result.failed}`
+        });
+
+        alert(`Import Complete!\nSuccess: ${result.success}\nFailed: ${result.failed}${result.errors.length > 0 ? '\n\nErrors:\n' + result.errors.join('\n') : ''}`);
+        
+        setIsImportModalOpen(false);
+        setImportData([]);
+        setImportErrors([]);
+        
+        // Refresh local data from server
+        await syncWithServer();
+      } else {
+        alert("Import failed: " + (result.error || "Unknown error"));
+      }
+    } catch (err) {
+      alert("Network error during import.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDownloadDeptReport = (dept: string) => {
@@ -175,11 +203,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     fullName: '',
     email: '',
     role: 'student',
-    department: 'Computer Science',
+    department: '',
+    departmentId: departments.length > 0 ? departments[0].id : '',
     idNumber: '',
     isActive: true,
-    programType: programs.length > 0 ? programs[0].programId : 'regular',
-    center: centers.length > 0 ? centers[0].centerId : 'main',
+    programType: programs.length > 0 ? programs[0].programId : '',
+    center: centers.length > 0 ? centers[0].centerId : '',
     batch: ''
   });
 
@@ -187,7 +216,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     courseCode: '',
     title: '',
     creditHours: 3,
-    department: 'Computer Science'
+    department: '',
+    departmentId: departments.length > 0 ? departments[0].id : ''
   });
 
   const [sectionForm, setSectionForm] = useState<Partial<Section>>({
@@ -212,41 +242,97 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
   });
 
   const [centerForm, setCenterForm] = useState({ name: '', location: '', description: '' });
-  const [programForm, setProgramForm] = useState({ name: '', durationYears: 4, description: '' });
-  const [batchForm, setBatchForm] = useState({ name: '', entryYear: '', currentYear: 1, expectedGraduation: '' });
+  const [programForm, setProgramForm] = useState({ name: '', durationYears: 4, description: '', departmentId: '' });
+  const [batchForm, setBatchForm] = useState({ name: '', entryYear: '', currentYear: 1, currentSemester: 1, expectedGraduation: '', programId: '' });
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingUser) {
-      updateUser(editingUser.userId, userForm);
-      addAuditLog({
-        action: 'UPDATE',
-        entityType: 'USER',
-        entityId: editingUser.userId,
-        entityName: userForm.fullName || editingUser.fullName,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Updated user ${userForm.role}`
-      });
-    } else {
-      const newUser: User = {
-        ...userForm,
-        userId: `user-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        isActive: true
-      } as User;
-      addUser(newUser);
-      addAuditLog({
-        action: 'CREATE',
-        entityType: 'USER',
-        entityId: newUser.userId,
-        entityName: newUser.fullName,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Created new ${newUser.role}`
-      });
+    setLoading(true);
+    try {
+      if (editingUser) {
+        await updateUser(editingUser.userId, userForm);
+        addAuditLog({
+          action: 'UPDATE',
+          entityType: 'USER',
+          entityId: editingUser.userId,
+          entityName: userForm.fullName || editingUser.fullName,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Updated user ${userForm.role}`
+        });
+      } else {
+        // Use a temporary ID which will be replaced by the real one from server
+        const newUser: User = {
+          ...userForm,
+          userId: `temp-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          isActive: true
+        } as User;
+        
+        await addUser(newUser);
+        
+        addAuditLog({
+          action: 'CREATE',
+          entityType: 'USER',
+          entityId: 'NEW',
+          entityName: newUser.fullName,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Created new ${newUser.role}`
+        });
+      }
+      setIsUserModalOpen(false);
+      setEditingUser(null);
+      setUserForm({ fullName: '', email: '', role: 'student', department: 'Computer Science', idNumber: '', isActive: true });
+    } catch (err: any) {
+      alert(err.message || "Failed to save user.");
+    } finally {
+      setLoading(false);
     }
-    setIsUserModalOpen(false);
-    setEditingUser(null);
-    setUserForm({ fullName: '', email: '', role: 'student', department: 'Computer Science', idNumber: '', isActive: true });
+  };
+
+  const handlePromoteCohorts = async () => {
+    setConfirmConfig({
+      title: 'Advance Global Semester Terms',
+      message: 'This advances all active Batches to their next semester. Regular programs advance to Sem 2, Extension to Sem 2/3. If a batch finishes its final semester for the year, it will be promoted to the next Academic Year (e.g., Freshman to Junior). Graduating Classes (GC) finishing their final semester will not map further. Proceed?',
+      type: 'warning',
+      confirmText: 'Advance Terms',
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          const eligibleBatches = batches.filter(b => b.currentYear < 4);
+          for (const batch of eligibleBatches) {
+            const program = programs.find(p => p.programId === batch.programId);
+            const isRegular = program?.name.toLowerCase() === 'regular';
+            const maxSemesters = isRegular ? 2 : 3;
+            
+            let newSemester = (batch.currentSemester || 1) + 1;
+            let newYear = batch.currentYear;
+            
+            if (newSemester > maxSemesters) {
+                newSemester = 1;
+                newYear = batch.currentYear + 1;
+            }
+
+            await updateBatch(batch.batchId, { currentYear: newYear, currentSemester: newSemester });
+            addAuditLog({
+              action: 'UPDATE',
+              entityType: 'BATCH',
+              entityId: batch.batchId,
+              entityName: batch.name,
+              performedBy: currentUser?.fullName || 'Admin',
+              details: `Advanced batch. Now Year ${newYear}, Sem ${newSemester}`
+            });
+          }
+          alert(`Success: ${eligibleBatches.length} cohorts have been advanced in their academic term.`);
+          await syncWithServer(); 
+        } catch (err: any) {
+          alert('Error advancing terms: ' + err.message);
+        } finally {
+          setIsConfirmModalOpen(false);
+          setLoading(false);
+        }
+      }
+    });
+    setIsConfirmModalOpen(true);
   };
 
   const handleDeleteUser = (userId: string) => {
@@ -274,36 +360,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     setIsConfirmModalOpen(true);
   };
 
-  const handleSaveCourse = (e: React.FormEvent) => {
+  const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingCourse) {
-      updateCourse(editingCourse.courseId, courseForm);
-      addAuditLog({
-        action: 'UPDATE',
-        entityType: 'COURSE',
-        entityId: editingCourse.courseId,
-        entityName: courseForm.title || editingCourse.title,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Updated course ${courseForm.courseCode}`
-      });
-    } else {
-      const newCourse: Course = {
-        ...courseForm,
-        courseId: `course-${Date.now()}`
-      } as Course;
-      addCourse(newCourse);
-      addAuditLog({
-        action: 'CREATE',
-        entityType: 'COURSE',
-        entityId: newCourse.courseId,
-        entityName: newCourse.title,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Created course ${newCourse.courseCode}`
-      });
+    setLoading(true);
+    try {
+      if (editingCourse) {
+        await updateCourse(editingCourse.courseId, courseForm);
+        addAuditLog({
+          action: 'UPDATE',
+          entityType: 'COURSE',
+          entityId: editingCourse.courseId,
+          entityName: courseForm.title || editingCourse.title,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Updated course ${courseForm.courseCode}`
+        });
+      } else {
+        const newCourse: Course = {
+          ...courseForm,
+          courseId: `course-${Date.now()}`
+        } as Course;
+        await addCourse(newCourse);
+        addAuditLog({
+          action: 'CREATE',
+          entityType: 'COURSE',
+          entityId: newCourse.courseId,
+          entityName: newCourse.title,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Created course ${newCourse.courseCode}`
+        });
+      }
+      setIsCourseModalOpen(false);
+      setEditingCourse(null);
+      setCourseForm({ courseCode: '', title: '', creditHours: 3, department: 'Computer Science' });
+    } catch (err: any) {
+      alert(err.message || "Failed to save course.");
+    } finally {
+      setLoading(false);
     }
-    setIsCourseModalOpen(false);
-    setEditingCourse(null);
-    setCourseForm({ courseCode: '', title: '', creditHours: 3, department: 'Computer Science' });
   };
 
   const handleDeleteCourse = (courseId: string) => {
@@ -331,95 +424,116 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     setIsConfirmModalOpen(true);
   };
 
-  const handleSaveSemester = (e: React.FormEvent) => {
+  const handleSaveSemester = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newSemester = {
-      ...semesterForm,
-      semesterId: `sem-${Date.now()}`
-    } as Semester;
-    
-    addSemester(newSemester);
-    if (newSemester.isActive) {
-      setActiveSemester(newSemester.semesterId);
-    }
-    
-    addAuditLog({
-      action: 'CREATE',
-      entityType: 'SEMESTER',
-      entityId: newSemester.semesterId,
-      entityName: newSemester.name,
-      performedBy: currentUser?.fullName || 'Admin',
-      details: `Created semester (Active: ${newSemester.isActive})`
-    });
-    
-    setIsSemesterModalOpen(false);
-    setSemesterForm({ name: '', startDate: '', endDate: '', isActive: false });
-  };
-
-  const handleSaveCenter = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingCenter) {
-      updateCenter(editingCenter.centerId, centerForm);
-      addAuditLog({
-        action: 'UPDATE',
-        entityType: 'CENTER',
-        entityId: editingCenter.centerId,
-        entityName: centerForm.name,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Updated center ${centerForm.name}`
-      });
-    } else {
-      const newCenter = {
-        ...centerForm,
-        centerId: centerForm.name.toLowerCase().replace(/\s+/g, '-'),
-        createdAt: new Date().toISOString()
-      };
-      addCenter(newCenter);
+    setLoading(true);
+    try {
+      const newSemester = {
+        ...semesterForm,
+        semesterId: `sem-${Date.now()}`
+      } as Semester;
+      
+      await addSemester(newSemester);
+      if (newSemester.isActive) {
+        await setActiveSemester(newSemester.semesterId);
+      }
+      
       addAuditLog({
         action: 'CREATE',
-        entityType: 'CENTER',
-        entityId: newCenter.centerId,
-        entityName: newCenter.name,
+        entityType: 'SEMESTER',
+        entityId: newSemester.semesterId,
+        entityName: newSemester.name,
         performedBy: currentUser?.fullName || 'Admin',
-        details: `Created center ${newCenter.name}`
+        details: `Created semester (Active: ${newSemester.isActive})`
       });
+      
+      setIsSemesterModalOpen(false);
+      setSemesterForm({ name: '', startDate: '', endDate: '', isActive: false });
+    } catch (err: any) {
+      alert(err.message || "Failed to save semester.");
+    } finally {
+      setLoading(false);
     }
-    setIsCenterModalOpen(false);
-    setCenterForm({ name: '', location: '', description: '' });
-    setEditingCenter(null);
   };
 
-  const handleSaveProgram = (e: React.FormEvent) => {
+  const handleSaveCenter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingProgram) {
-      updateProgram(editingProgram.programId, programForm);
-      addAuditLog({
-        action: 'UPDATE',
-        entityType: 'PROGRAM',
-        entityId: editingProgram.programId,
-        entityName: programForm.name,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Updated program ${programForm.name}`
-      });
-    } else {
-      const newProgram: ProgramInfo = {
-        ...programForm,
-        programId: `prog-${Date.now()}`,
-        createdAt: new Date().toISOString()
-      };
-      addProgram(newProgram);
-      addAuditLog({
-        action: 'CREATE',
-        entityType: 'PROGRAM',
-        entityId: newProgram.programId,
-        entityName: newProgram.name,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Created program ${newProgram.name}`
-      });
+    setLoading(true);
+    try {
+      if (editingCenter) {
+        await updateCenter(editingCenter.centerId, centerForm);
+        addAuditLog({
+          action: 'UPDATE',
+          entityType: 'CENTER',
+          entityId: editingCenter.centerId,
+          entityName: centerForm.name,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Updated center ${centerForm.name}`
+        });
+      } else {
+        const newCenter = {
+          ...centerForm,
+          centerId: centerForm.name?.toLowerCase().replace(/\s+/g, '-') || `center-${Date.now()}`,
+          createdAt: new Date().toISOString()
+        };
+        await addCenter(newCenter);
+        addAuditLog({
+          action: 'CREATE',
+          entityType: 'CENTER',
+          entityId: newCenter.centerId,
+          entityName: newCenter.name,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Created center ${newCenter.name}`
+        });
+      }
+      setIsCenterModalOpen(false);
+      setCenterForm({ name: '', location: '', description: '' });
+      setEditingCenter(null);
+    } catch (err: any) {
+      alert(err.message || "Failed to save center.");
+    } finally {
+      setLoading(false);
     }
-    setIsProgramModalOpen(false);
-    setProgramForm({ name: '', durationYears: 4, description: '' });
-    setEditingProgram(null);
+  };
+
+  const handleSaveProgram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (editingProgram) {
+        await updateProgram(editingProgram.programId, programForm);
+        addAuditLog({
+          action: 'UPDATE',
+          entityType: 'PROGRAM',
+          entityId: editingProgram.programId,
+          entityName: programForm.name,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Updated program ${programForm.name}`
+        });
+      } else {
+        const newProgram: ProgramInfo = {
+          ...programForm,
+          programId: `prog-${Date.now()}`,
+          createdAt: new Date().toISOString()
+        };
+        await addProgram(newProgram);
+        addAuditLog({
+          action: 'CREATE',
+          entityType: 'PROGRAM',
+          entityId: newProgram.programId,
+          entityName: newProgram.name,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Created program ${newProgram.name}`
+        });
+      }
+      setIsProgramModalOpen(false);
+      setProgramForm({ name: '', durationYears: 4, description: '', departmentId: '' });
+      setEditingProgram(null);
+    } catch (err: any) {
+      alert(err.message || "Failed to save program.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDeleteProgram = (programId: string) => {
@@ -446,37 +560,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     setIsConfirmModalOpen(true);
   };
 
-  const handleSaveBatch = (e: React.FormEvent) => {
+  const handleSaveBatch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingBatch) {
-      updateBatch(editingBatch.batchId, batchForm);
-      addAuditLog({
-        action: 'UPDATE',
-        entityType: 'BATCH',
-        entityId: editingBatch.batchId,
-        entityName: batchForm.name,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Updated batch ${batchForm.name}`
-      });
-    } else {
-      const newBatch: BatchInfo = {
-        ...batchForm,
-        batchId: `batch-${Date.now()}`,
-        createdAt: new Date().toISOString()
-      };
-      addBatch(newBatch);
-      addAuditLog({
-        action: 'CREATE',
-        entityType: 'BATCH',
-        entityId: newBatch.batchId,
-        entityName: newBatch.name,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Created batch ${newBatch.name}`
-      });
+    setLoading(true);
+    try {
+      if (editingBatch) {
+        await updateBatch(editingBatch.batchId, batchForm);
+        addAuditLog({
+          action: 'UPDATE',
+          entityType: 'BATCH',
+          entityId: editingBatch.batchId,
+          entityName: batchForm.name,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Updated batch ${batchForm.name}`
+        });
+      } else {
+        const newBatch: BatchInfo = {
+          ...batchForm,
+          batchId: `batch-${Date.now()}`,
+          createdAt: new Date().toISOString()
+        };
+        await addBatch(newBatch);
+        addAuditLog({
+          action: 'CREATE',
+          entityType: 'BATCH',
+          entityId: newBatch.batchId,
+          entityName: newBatch.name,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Created batch ${newBatch.name}`
+        });
+      }
+      setIsBatchModalOpen(false);
+      setBatchForm({ name: '', entryYear: '', currentYear: 1, currentSemester: 1, expectedGraduation: '', programId: '' });
+      setEditingBatch(null);
+    } catch (err: any) {
+      alert(err.message || "Failed to save batch.");
+    } finally {
+      setLoading(false);
     }
-    setIsBatchModalOpen(false);
-    setBatchForm({ name: '', entryYear: '', currentYear: 1, expectedGraduation: '' });
-    setEditingBatch(null);
   };
 
   const handleDeleteBatch = (batchId: string) => {
@@ -503,15 +624,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     setIsConfirmModalOpen(true);
   };
 
-  const handleSaveSection = (e: React.FormEvent) => {
+  const handleSaveSection = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Submitting section form:', sectionForm);
+    
     const activeSemester = semesters.find(s => s.isActive);
     if (!activeSemester) {
-      alert('Please set an active semester first.');
+      alert('CRITICAL ERROR: No active semester found. Please go to "System Settings" -> "Semesters" and set a semester as active before assigning sections.');
       return;
     }
 
-    // Uniqueness Check: Prevent duplicate course sections for the same batch EVER (as per requirement: "can't have repetitive Bach if they take before now")
+    // Uniqueness Check: Prevent duplicate course sections for the same batch EVER
     const existingEntry = sections.find(s => 
       s.courseId === sectionForm.courseId && 
       s.batchId === sectionForm.batchId && 
@@ -526,39 +649,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
       return;
     }
 
-    if (editingSection) {
-      updateSection(editingSection.sectionId, sectionForm);
+    setLoading(true);
+    try {
+      if (editingSection) {
+        await updateSection(editingSection.sectionId, sectionForm);
 
-      addAuditLog({
-        action: 'UPDATE',
-        entityType: 'SECTION',
-        entityId: editingSection.sectionId,
-        entityName: sectionForm.room || editingSection.room,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Updated section for course ${sectionForm.courseId}`
-      });
-    } else {
-      const newSection: Section = {
-        ...sectionForm,
-        sectionId: `section-${Date.now()}`,
-        semesterId: activeSemester.semesterId,
-        geofenceCenter: { latitude: 0, longitude: 0 }, // Default, instructor sets this
-        geofenceRadius: 50
-      } as Section;
-      addSection(newSection);
-      
-      addAuditLog({
-        action: 'CREATE',
-        entityType: 'SECTION',
-        entityId: newSection.sectionId,
-        entityName: newSection.room,
-        performedBy: currentUser?.fullName || 'Admin',
-        details: `Created section for course ${newSection.courseId}`
-      });
+        addAuditLog({
+          action: 'UPDATE',
+          entityType: 'SECTION',
+          entityId: editingSection.sectionId,
+          entityName: sectionForm.room || editingSection.room,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Updated section for course ${sectionForm.courseId}`
+        });
+      } else {
+        const sectionId = `section-${Date.now()}`;
+        const newSection: Section = {
+          ...sectionForm,
+          sectionId,
+          semesterId: activeSemester.semesterId,
+          geofenceCenter: { latitude: 0, longitude: 0 },
+          geofenceRadius: 50
+        } as Section;
+        
+        console.log('Saving new section:', newSection);
+        await addSection(newSection);
+        
+        addAuditLog({
+          action: 'CREATE',
+          entityType: 'SECTION',
+          entityId: sectionId,
+          entityName: newSection.room,
+          performedBy: currentUser?.fullName || 'Admin',
+          details: `Created section for course ${newSection.courseId}`
+        });
+      }
+      setIsSectionModalOpen(false);
+      setEditingSection(null);
+      setSectionForm({ courseId: '', instructorId: '', room: '', programType: programs.length > 0 ? programs[0].programId : '', center: centers.length > 0 ? centers[0].centerId : '', startDate: '', endDate: '', schedule: [] });
+    } catch (err: any) {
+      console.error('Section save error:', err);
+      alert(`Failed to save section: ${err.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
     }
-    setIsSectionModalOpen(false);
-    setEditingSection(null);
-    setSectionForm({ courseId: '', instructorId: '', room: '', programType: programs.length > 0 ? programs[0].programId : 'regular', center: centers.length > 0 ? centers[0].centerId : 'main', startDate: '', endDate: '', schedule: [] });
   };
 
   const handleDeleteCenter = (centerId: string) => {
@@ -613,8 +747,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
 
   const filteredStaff = users.filter(u => 
     u.role !== 'student' && (
-      u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.idNumber?.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
@@ -625,15 +759,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
     (filterProgram === 'all' || u.programType === filterProgram) &&
     (filterBatch === 'all' || u.batch === filterBatch) &&
     (
-      u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.idNumber?.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
 
   const filteredCourses = courses.filter(c => 
-    c.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    c.courseCode.toLowerCase().includes(searchQuery.toLowerCase())
+    c.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    c.courseCode?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Mock data for charts
@@ -908,6 +1042,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   <Upload className="w-3.5 h-3.5" />
                   Import Students
                 </button>
+                <button 
+                  onClick={() => {
+                    setConfirmConfig({
+                      title: 'Clear All Students',
+                      message: 'Are you sure you want to delete ALL students from the database? This cannot be undone.',
+                      type: 'danger',
+                      confirmText: 'Delete All Students',
+                      onConfirm: async () => {
+                        await deleteAllStudents();
+                        setIsConfirmModalOpen(false);
+                      }
+                    });
+                    setIsConfirmModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm flex items-center gap-2"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Clear All
+                </button>
                 <button className="px-4 py-2 bg-hu-cream text-brand-primary rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary hover:text-white dark:text-hu-charcoal transition-all shadow-sm">
                   Export List
                 </button>
@@ -968,7 +1121,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                           <div className="flex flex-col gap-1">
                             <span className={cn(
                               "px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest w-fit",
-                              programs.find(p => p.programId === u.programType)?.name.toLowerCase() === 'regular' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-hu-gold/10 text-hu-gold'
+                              programs.find(p => p.programId === u.programType)?.name?.toLowerCase() === 'regular' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-hu-gold/10 text-hu-gold'
                             )}>
                               {programs.find(p => p.programId === u.programType)?.name || u.programType}
                             </span>
@@ -1179,7 +1332,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
             <button 
               onClick={() => {
                 setEditingProgram(null);
-                setProgramForm({ name: '', durationYears: 4, description: '' });
+                setProgramForm({ name: '', durationYears: 4, description: '', departmentId: '' });
                 setIsProgramModalOpen(true);
               }}
               className="hu-button-rounded flex items-center gap-3"
@@ -1206,7 +1359,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     <button 
                       onClick={() => {
                         setEditingProgram(program);
-                        setProgramForm({ name: program.name, durationYears: program.durationYears, description: program.description || '' });
+                        setProgramForm({ 
+                          name: program.name, 
+                          durationYears: program.durationYears, 
+                          description: program.description || '',
+                          departmentId: program.departmentId || ''
+                        });
                         setIsProgramModalOpen(true);
                       }}
                       className="p-2 text-gray-300 hover:text-hu-gold transition-colors"
@@ -1245,17 +1403,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
         <section className="space-y-6 md:space-y-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-brand-text transition-colors">Student Batches</h2>
-            <button 
-              onClick={() => {
-                setEditingBatch(null);
-                setBatchForm({ name: '', entryYear: '', currentYear: 1, expectedGraduation: '' });
-                setIsBatchModalOpen(true);
-              }}
-              className="hu-button-rounded flex items-center gap-3"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="text-xs uppercase tracking-widest">Add Batch</span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handlePromoteCohorts}
+                disabled={loading}
+                className="hu-button-rounded flex items-center gap-3 bg-hu-gold hover:bg-hu-gold/80 text-brand-text"
+              >
+                <Clock className="w-5 h-5" />
+                <span className="text-xs uppercase tracking-widest">{loading ? 'Processing...' : 'Advance Terms'}</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setEditingBatch(null);
+                  setBatchForm({ name: '', entryYear: '', currentYear: 1, currentSemester: 1, expectedGraduation: '', programId: '' });
+                  setIsBatchModalOpen(true);
+                }}
+                className="hu-button-rounded flex items-center gap-3"
+              >
+                <Plus className="w-5 h-5" />
+                <span className="text-xs uppercase tracking-widest">Add Batch</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
@@ -1275,7 +1443,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     <button 
                       onClick={() => {
                         setEditingBatch(batch);
-                        setBatchForm({ name: batch.name, entryYear: batch.entryYear, currentYear: batch.currentYear, expectedGraduation: batch.expectedGraduation });
+                        setBatchForm({ 
+                          name: batch.name, 
+                          entryYear: batch.entryYear, 
+                          currentYear: batch.currentYear, 
+                          currentSemester: batch.currentSemester || 1,
+                          expectedGraduation: batch.expectedGraduation,
+                          programId: batch.programId || ''
+                        });
                         setIsBatchModalOpen(true);
                       }}
                       className="p-2 text-gray-300 hover:text-hu-gold transition-colors"
@@ -1293,7 +1468,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                 <h3 className="text-xl font-serif font-bold text-brand-text mb-1">{batch.name}</h3>
                 <p className="text-xs font-bold text-brand-primary uppercase tracking-widest mb-4 flex items-center gap-2">
                   <Clock className="w-3 h-3" />
-                  Academic Year {batch.currentYear}
+                  {batch.currentYear === 1 ? 'Freshman' : batch.currentYear === 2 ? 'Junior' : batch.currentYear === 3 ? 'Senior' : batch.currentYear >= 4 ? 'GC' : `Year ${batch.currentYear}`} • Sem {batch.currentSemester || 1}
                 </p>
                 
                 <div className="grid grid-cols-2 gap-4 mb-6">
@@ -1464,17 +1639,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
         <section className="space-y-6 md:space-y-8">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <h2 className="text-2xl md:text-3xl font-serif font-bold text-brand-text">Section Assignments</h2>
-            <button 
-              onClick={() => {
-                setEditingSection(null);
-                setSectionForm({ courseId: '', instructorId: '', room: '', programType: programs.length > 0 ? programs[0].programId : 'regular', center: centers.length > 0 ? centers[0].centerId : 'main', startDate: '', endDate: '', schedule: [] });
-                setIsSectionModalOpen(true);
-              }}
-              className="hu-button-rounded flex items-center gap-3"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="text-xs uppercase tracking-widest">Assign Section</span>
-            </button>
+      <button 
+        type="button"
+        onClick={() => {
+          setEditingSection(null);
+          // Set sensible defaults from available data
+          const defaultProgram = programs.find(p => p.name?.toLowerCase() === 'regular')?.programId || (programs.length > 0 ? programs[0].programId : '');
+          const defaultCenter = centers.find(c => c.name?.toLowerCase().includes('main'))?.centerId || (centers.length > 0 ? centers[0].centerId : '');
+          
+          setSectionForm({ 
+            courseId: '', 
+            instructorId: '', 
+            room: '', 
+            programType: defaultProgram, 
+            center: defaultCenter, 
+            startDate: '', 
+            endDate: '', 
+            schedule: [] 
+          });
+          setIsSectionModalOpen(true);
+        }}
+        className="hu-button-rounded flex items-center gap-3 transition-transform active:scale-95"
+      >
+        <Plus className="w-5 h-5" />
+        <span className="text-xs uppercase tracking-widest">Assign Section</span>
+      </button>
           </div>
 
           <div className="hu-card-alt overflow-hidden">
@@ -1513,7 +1702,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                           <div className="flex flex-col gap-1">
                             <span className={cn(
                               "px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest w-fit",
-                              programs.find(p => p.programId === s.programType)?.name.toLowerCase() === 'regular' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-hu-gold/10 text-hu-gold'
+                              programs.find(p => p.programId === s.programType)?.name?.toLowerCase() === 'regular' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-hu-gold/10 text-hu-gold'
                             )}>
                               {programs.find(p => p.programId === s.programType)?.name || s.programType}
                             </span>
@@ -1800,14 +1989,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Email Address</label>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                      {userForm.role === 'student' ? 'Student ID / Username' : 'Email Address'}
+                    </label>
                     <input
                       required
-                      type="email"
+                      type={userForm.role === 'student' ? "text" : "email"}
                       value={userForm.email || ''}
                       onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
                       className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
-                      placeholder="email@haramaya.edu.et"
+                      placeholder={userForm.role === 'student' ? 'e.g. 0388/15' : 'email@haramaya.edu.et'}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1835,14 +2026,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Department</label>
-                    <input
+                    <select
                       required
-                      type="text"
-                      value={userForm.department || ''}
-                      onChange={(e) => setUserForm({ ...userForm, department: e.target.value })}
-                      className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
-                      placeholder="e.g. Computer Science"
-                    />
+                      value={userForm.departmentId || (departments.length > 0 ? departments[0].id : '')}
+                      onChange={(e) => {
+                        const dept = departments.find(d => d.id === e.target.value);
+                        setUserForm({ ...userForm, departmentId: e.target.value, department: dept?.name || '' });
+                      }}
+                      className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
                   </div>
 
                   {userForm.role === 'student' && (
@@ -1851,7 +2048,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                         <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Program Type</label>
                         <select
                           value={userForm.programType || (programs.length > 0 ? programs[0].programId : '')}
-                          onChange={(e) => setUserForm({ ...userForm, programType: e.target.value as ProgramType })}
+                          onChange={(e) => {
+                            const newProgramId = e.target.value;
+                            const isRegular = programs.find(p => p.programId === newProgramId)?.name.toLowerCase() === 'regular';
+                            
+                            setUserForm({ 
+                              ...userForm, 
+                              programType: newProgramId as ProgramType,
+                              center: isRegular ? (centers.find(c => c.name.toLowerCase().includes('main'))?.centerId as Center || userForm.center) : userForm.center
+                            });
+                          }}
                           className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
                         >
                           {programs.map(p => (
@@ -1862,9 +2068,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       <div className="space-y-2">
                         <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Center</label>
                         <select
+                          disabled={programs.find(p => p.programId === userForm.programType)?.name.toLowerCase() === 'regular'}
                           value={userForm.center || (centers.length > 0 ? centers[0].centerId : 'main')}
                           onChange={(e) => setUserForm({ ...userForm, center: e.target.value as Center })}
-                          className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
+                          className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {centers.map(c => (
                             <option key={c.centerId} value={c.centerId}>{c.name}</option>
@@ -1971,14 +2178,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Department</label>
-                    <input
+                    <select
                       required
-                      type="text"
-                      value={courseForm.department || ''}
-                      onChange={(e) => setCourseForm({ ...courseForm, department: e.target.value })}
-                      className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
-                      placeholder="e.g. Computer Science"
-                    />
+                      value={courseForm.departmentId || ''}
+                      onChange={(e) => {
+                        const dept = departments.find(d => d.id === e.target.value);
+                        setCourseForm({ ...courseForm, departmentId: e.target.value, department: dept?.name || '' });
+                      }}
+                      className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="pt-4 flex gap-4">
@@ -2022,11 +2235,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                 <h3 className="text-2xl font-serif font-bold text-brand-text">
                   {editingSection ? 'Edit Section Assignment' : 'Assign New Section'}
                 </h3>
-                <button onClick={() => setIsSectionModalOpen(false)} className="p-2 hover:bg-brand-bg rounded-xl transition-all">
+                <button type="button" onClick={() => setIsSectionModalOpen(false)} className="p-2 hover:bg-brand-bg rounded-xl transition-all">
                   <X className="w-5 h-5 text-gray-400" />
                 </button>
               </div>
-              <form onSubmit={handleSaveSection} className="p-8 space-y-6 overflow-y-auto flex-1">
+              <form 
+                onSubmit={(e) => {
+                  console.log('Form onSubmit reached');
+                  handleSaveSection(e);
+                }} 
+                className="p-8 space-y-6 overflow-y-auto flex-1"
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Course</label>
@@ -2071,10 +2290,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Program Type</label>
                     <select
                       required
-                      value={sectionForm.programType || (programs.length > 0 ? programs[0].programId : '')}
-                      onChange={(e) => setSectionForm({ ...sectionForm, programType: e.target.value as ProgramType })}
+                      value={sectionForm.programType || ''}
+                      onChange={(e) => {
+                        const newProgramId = e.target.value;
+                        const isRegular = programs.find(p => p.programId === newProgramId)?.name.toLowerCase() === 'regular';
+                        
+                        setSectionForm({ 
+                          ...sectionForm, 
+                          programType: newProgramId as ProgramType,
+                          center: isRegular ? (centers.find(c => c.name.toLowerCase().includes('main'))?.centerId as Center || sectionForm.center) : sectionForm.center
+                        });
+                      }}
                       className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
                     >
+                      <option value="">Select Program Type</option>
                       {programs.map(p => (
                         <option key={p.programId} value={p.programId}>{p.name}</option>
                       ))}
@@ -2084,10 +2313,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Center</label>
                     <select
                       required
-                      value={sectionForm.center || (centers.length > 0 ? centers[0].centerId : 'main')}
+                      disabled={programs.find(p => p.programId === sectionForm.programType)?.name.toLowerCase() === 'regular'}
+                      value={sectionForm.center || ''}
                       onChange={(e) => setSectionForm({ ...sectionForm, center: e.target.value as Center })}
-                      className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
+                      className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                     >
+                      <option value="">Select Center</option>
                       {centers.map(c => (
                         <option key={c.centerId} value={c.centerId}>{c.name}</option>
                       ))}
@@ -2132,7 +2363,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Schedule Blocks</label>
                     <div className="flex gap-2">
-                      {programs.find(p => p.programId === sectionForm.programType)?.name.toLowerCase() === 'extension' && (
+                      {programs.find(p => p.programId === sectionForm.programType)?.name?.toLowerCase() === 'extension' && (
                         <button
                           type="button"
                           onClick={() => setSectionForm({
@@ -2362,9 +2593,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-4 bg-brand-primary text-white dark:text-hu-charcoal rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-hu-gold transition-all shadow-xl shadow-brand-primary/20"
+                    disabled={loading}
+                    className={cn(
+                      "flex-1 py-4 rounded-xl font-bold text-xs uppercase tracking-widest transition-all shadow-xl",
+                      loading ? "bg-gray-400 cursor-not-allowed" : "bg-brand-primary text-white dark:text-hu-charcoal hover:bg-hu-gold shadow-brand-primary/20"
+                    )}
                   >
-                    {editingSection ? 'Update Section' : 'Assign Section'}
+                    {loading ? 'Processing...' : (editingSection ? 'Update Section' : 'Assign Section')}
                   </button>
                 </div>
               </form>
@@ -2474,7 +2709,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                 </div>
 
                 {/* Meeting Dates (Weekends) */}
-                {programs.find(p => p.programId === selectedSectionDetails.programType)?.name.toLowerCase() === 'extension' && (
+                {programs.find(p => p.programId === selectedSectionDetails.programType)?.name?.toLowerCase() === 'extension' && (
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 text-brand-primary">
                       <Calendar className="w-5 h-5" />
@@ -2714,9 +2949,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                     min="1"
                     max="7"
                     value={programForm.durationYears}
-                    onChange={(e) => setProgramForm({ ...programForm, durationYears: parseInt(e.target.value) })}
+                    onChange={(e) => setProgramForm({ ...programForm, durationYears: parseInt(e.target.value) || 4 })}
                     className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Department</label>
+                  <select
+                    required
+                    value={programForm.departmentId || ''}
+                    onChange={(e) => setProgramForm({ ...programForm, departmentId: e.target.value })}
+                    className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Description</label>
@@ -2806,6 +3055,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                       className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Current Semester</label>
+                    <input
+                      required
+                      type="number"
+                      min="1"
+                      max="3"
+                      value={batchForm.currentSemester || 1}
+                      onChange={(e) => setBatchForm({ ...batchForm, currentSemester: parseInt(e.target.value) })}
+                      className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Associated Program</label>
+                  <select
+                    required
+                    value={batchForm.programId || ''}
+                    onChange={(e) => setBatchForm({ ...batchForm, programId: e.target.value })}
+                    className="w-full px-6 py-4 bg-brand-bg border-none rounded-xl text-sm font-bold focus:ring-2 focus:ring-hu-gold/20 outline-none transition-all appearance-none"
+                  >
+                    <option value="">Select Program</option>
+                    {programs.map(p => (
+                      <option key={p.programId} value={p.programId}>{p.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Expected Graduation Year</label>
@@ -2939,16 +3214,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
                           <thead className="bg-brand-bg">
                             <tr>
                               <th className="px-4 py-3 font-bold text-gray-400 uppercase tracking-widest">Name</th>
-                              <th className="px-4 py-3 font-bold text-gray-400 uppercase tracking-widest">Email</th>
                               <th className="px-4 py-3 font-bold text-gray-400 uppercase tracking-widest">ID</th>
+                              <th className="px-4 py-3 font-bold text-gray-400 uppercase tracking-widest">Batch</th>
+                              <th className="px-4 py-3 font-bold text-gray-400 uppercase tracking-widest">Center</th>
+                              <th className="px-4 py-3 font-bold text-gray-400 uppercase tracking-widest">Program</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-brand-border">
                             {importData.slice(0, 5).map((row, i) => (
                               <tr key={i}>
                                 <td className="px-4 py-3 font-bold text-brand-text">{row.fullName}</td>
-                                <td className="px-4 py-3 text-gray-400">{row.email}</td>
                                 <td className="px-4 py-3 font-mono text-brand-primary">{row.idNumber}</td>
+                                <td className="px-4 py-3 text-gray-400">{row.batchName}</td>
+                                <td className="px-4 py-3 text-gray-400">{row.centerName}</td>
+                                <td className="px-4 py-3 text-gray-400">{row.programName}</td>
                               </tr>
                             ))}
                           </tbody>
