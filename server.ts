@@ -43,6 +43,14 @@ async function startServer() {
   app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
 
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Login attempt failed: Supabase secrets missing.');
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Database configuration error. Please ensure Supabase secrets are set.' 
+      });
+    }
+
     try {
       // 1. Find user in database (Case-insensitive check)
       const { data: user, error } = await supabaseAdmin

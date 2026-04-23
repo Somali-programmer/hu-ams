@@ -72,7 +72,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err) {
       setLoading(false);
-      return { success: false, message: 'Connection error' };
+      console.error('Login request failed:', err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      return { success: false, message: `Connection error: ${errorMessage}` };
     }
   };
 

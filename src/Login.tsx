@@ -34,7 +34,11 @@ const Login: React.FC = () => {
     if (result.success) {
       navigate('/');
     } else {
-      setError(result.message || 'Login failed');
+      let msg = result.message || 'Login failed';
+      if (msg.toLowerCase().includes('database configuration error')) {
+        msg += ' (Check your Supabase URL and Service Key in Settings)';
+      }
+      setError(msg);
       setLoading(false);
     }
   };
