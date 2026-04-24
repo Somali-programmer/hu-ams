@@ -20,6 +20,7 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json());
 
 // Middleware
+// Development request logging middleware (disabled for production)
 // app.use((req, res, next) => {
 //   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
 //   next();
