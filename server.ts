@@ -10,8 +10,9 @@ import { bulkRegisterStudents } from './server/services/import.service';
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Fixed: Vercel serverless functions crash when using import.meta.url in CJS transpiled code.
+// We removed __dirname and __filename, and replaced path.join(__dirname) with path.join(process.cwd()).
+
 const JWT_SECRET = process.env.JWT_SECRET || 'hu-default-secret';
 
 const app = express();
@@ -905,7 +906,7 @@ app.post('/api/auth/login', async (req, res) => {
     app.use(vite.middlewares);
   } else if (!process.env.VERCEL) {
     // Production static serving
-    const distPath = path.join(__dirname, 'dist');
+    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
