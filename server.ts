@@ -20,10 +20,7 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
-// Main init block
-(async () => {
-
-// Add a simple error logging middleware
+// Middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
@@ -896,6 +893,8 @@ app.post('/api/auth/login', async (req, res) => {
     }
   });
 
+// Main init block
+(async () => {
   // Vite Middleware for Development
   if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const vite = await createViteServer({
@@ -926,5 +925,15 @@ app.post('/api/auth/login', async (req, res) => {
     });
   }
 })();
+
+// Global error handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('Unhandled Server Error:', err);
+  res.status(500).json({ 
+    success: false, 
+    message: 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
 
 export default app;

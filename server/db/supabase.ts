@@ -3,7 +3,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
+let supabaseUrl = process.env.SUPABASE_URL || '';
+// Ensure https protocol
+if (supabaseUrl && !supabaseUrl.startsWith('http')) {
+  supabaseUrl = `https://${supabaseUrl}`;
+}
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 if (!supabaseUrl || !supabaseServiceKey) {
