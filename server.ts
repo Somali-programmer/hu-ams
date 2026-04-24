@@ -20,10 +20,10 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json());
 
 // Middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-});
+// app.use((req, res, next) => {
+//   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+//   next();
+// });
 
 // API Routes
 app.get('/api/health', async (req, res) => {
