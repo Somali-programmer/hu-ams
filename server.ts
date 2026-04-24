@@ -15,43 +15,51 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const JWT_SECRET = process.env.JWT_SECRET || 'hu-default-secret';
 
-async function startServer() {
-  const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+const app = express();
+const PORT = Number(process.env.PORT) || 3000;
 
-  app.use(express.json());
+app.use(express.json());
 
-  // API Routes
-  app.get('/api/health', async (req, res) => {
-    let dbStatus = 'disconnected';
-    try {
-      const { error } = await supabaseAdmin.from('departments').select('count', { count: 'exact', head: true });
-      if (!error) dbStatus = 'connected';
-    } catch (err) {
-      dbStatus = 'error';
-    }
+// Main init block
+(async () => {
 
-    res.json({ 
-      status: 'success', 
-      service: 'Haramaya University Attendance System API',
-      database: dbStatus,
-      timestamp: new Date().toISOString()
-    });
+// Add a simple error logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
+// API Routes
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'disconnected';
+  try {
+    const { error } = await supabaseAdmin.from('departments').select('count', { count: 'exact', head: true });
+    if (!error) dbStatus = 'connected';
+  } catch (err) {
+    dbStatus = 'error';
+  }
+
+  res.json({ 
+    status: 'success', 
+    service: 'Haramaya University Attendance System API',
+    database: dbStatus,
+    timestamp: new Date().toISOString()
   });
+});
 
-  // Auth Routes
-  app.post('/api/auth/login', async (req, res) => {
-    const { username, password } = req.body;
+// Auth Routes
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
 
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('Login attempt failed: Supabase secrets missing.');
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Database configuration error. Please ensure Supabase secrets are set.' 
-      });
-    }
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Login attempt failed: Supabase secrets missing.');
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Database configuration error. Please ensure Supabase secrets are set in Vercel/Environment.' 
+    });
+  }
 
-    try {
+  try {
       // 1. Find user in database (Case-insensitive check)
       const { data: user, error } = await supabaseAdmin
         .from('users')
@@ -917,17 +925,6 @@ async function startServer() {
       `);
     });
   }
+})();
 
-  return app;
-}
-
-const appPromise = startServer();
-
-export default async (req: any, res: any) => {
-  const app = await appPromise;
-  return app(req, res);
-};
-
-appPromise.catch((err) => {
-  console.error('Failed to start server:', err);
-});
+export default app;
