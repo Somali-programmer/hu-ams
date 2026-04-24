@@ -2,11 +2,11 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { supabaseAdmin } from './server/db/supabase';
+import { supabaseAdmin } from './server/db/supabase.js';
 
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { bulkRegisterStudents } from './server/services/import.service';
+import { bulkRegisterStudents } from './server/services/import.service.js';
 
 dotenv.config();
 

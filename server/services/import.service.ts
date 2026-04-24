@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../db/supabase';
+import { supabaseAdmin } from '../db/supabase.js';
 import bcrypt from 'bcryptjs';
 
 export interface StudentImportRow {
