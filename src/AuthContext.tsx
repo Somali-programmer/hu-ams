@@ -79,7 +79,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Non-JSON response:', text);
         return { 
           success: false, 
-          message: `Server Error (${res.status}): The server returned an unexpected response format. This may happen if the backend server failed or is not configured properly.`
+          message: res.status === 404 
+            ? `Server Error (404): The login endpoint was not found. If you are using Vercel, ensure your 'vercel.json' and 'api/' folder are correctly configured.`
+            : `Server Error (${res.status}): The server returned an unexpected response format. This may happen if the backend server failed or is not configured properly.`
         };
       }
     } catch (err) {

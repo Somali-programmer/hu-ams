@@ -889,7 +889,7 @@ async function startServer() {
   });
 
   // Vite Middleware for Development
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -904,19 +904,30 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`
-    ================================================
-       HARAMAYA UNIVERSITY ATTENDANCE SYSTEM
-    ================================================
-       Server is running on http://0.0.0.0:${PORT}
-       Backend: Node.js / Express.js
-       Database: Supabase / PostgreSQL (Active)
-    ================================================
-    `);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`
+      ================================================
+         HARAMAYA UNIVERSITY ATTENDANCE SYSTEM
+      ================================================
+         Server is running on http://0.0.0.0:${PORT}
+         Backend: Node.js / Express.js
+         Database: Supabase / PostgreSQL (Active)
+      ================================================
+      `);
+    });
+  }
+
+  return app;
 }
 
-startServer().catch((err) => {
+const appPromise = startServer();
+
+export default async (req: any, res: any) => {
+  const app = await appPromise;
+  return app(req, res);
+};
+
+appPromise.catch((err) => {
   console.error('Failed to start server:', err);
 });
