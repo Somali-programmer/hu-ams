@@ -512,7 +512,10 @@ app.post('/api/auth/login', async (req, res) => {
       }).select().single();
       if (error) throw error;
       res.json(data);
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      const errorMessage = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      res.status(500).json({ error: errorMessage }); 
+    }
   });
 
   app.put('/api/courses/:id', async (req, res) => {
@@ -528,7 +531,10 @@ app.post('/api/auth/login', async (req, res) => {
       const { error } = await supabaseAdmin.from('courses').update(updateData).eq('id', req.params.id);
       if (error) throw error;
       res.json({ success: true });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      const errorMessage = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      res.status(500).json({ error: errorMessage }); 
+    }
   });
 
   // Semesters
@@ -577,7 +583,10 @@ app.post('/api/auth/login', async (req, res) => {
       }).eq('id', req.params.id);
       if (error) throw error;
       res.json({ success: true });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      const errorMessage = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      res.status(500).json({ error: errorMessage }); 
+    }
   });
 
   // Sections

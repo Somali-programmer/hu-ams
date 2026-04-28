@@ -688,8 +688,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ view = 'overview' }) =>
           ...sectionForm,
           sectionId,
           semesterId: activeSemester.semesterId,
-          geofenceCenter: { latitude: 0, longitude: 0 },
-          geofenceRadius: 50
+          geofenceCenter: sectionForm.geofenceCenter || { latitude: 9.35, longitude: 42.8 },
+          geofenceRadius: sectionForm.geofenceRadius || 100,
+          coursePolicy: sectionForm.coursePolicy || ''
         } as Section;
         
         console.log('Saving new section:', newSection);
