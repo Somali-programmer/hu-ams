@@ -3,17 +3,25 @@
 -- 1. Add description to centers
 ALTER TABLE centers ADD COLUMN IF NOT EXISTS description TEXT;
 
--- 2. Add description to programs
+-- 2. Add description and duration_years to programs
 ALTER TABLE programs ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE programs ADD COLUMN IF NOT EXISTS duration_years INTEGER DEFAULT 4;
 
 -- 3. Add center_id reference to batches
 ALTER TABLE batches ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id);
 
--- Optional: If you want to seed a 2023 Batch for both Regular and Extension:
--- Note: Replace the program_id and center_id with actual UUIDs from your tables.
-/*
-INSERT INTO batches (name, entry_year, current_year, current_semester, expected_graduation, program_id, center_id)
-VALUES 
-  ('2023 Batch (Regular)', 2023, 1, 1, '2027', '<insert-regular-program-uuid-here>', NULL),
-  ('2023 Batch (Extension)', 2023, 1, 1, '2027', '<insert-extension-program-uuid-here>', '<insert-center-uuid-here>');
-*/
+-- 4. Ensure other batch metadata exists (if missing)
+ALTER TABLE batches ADD COLUMN IF NOT EXISTS entry_year INTEGER;
+ALTER TABLE batches ADD COLUMN IF NOT EXISTS current_year INTEGER DEFAULT 1;
+ALTER TABLE batches ADD COLUMN IF NOT EXISTS current_semester INTEGER DEFAULT 1;
+ALTER TABLE batches ADD COLUMN IF NOT EXISTS expected_graduation TEXT;
+
+-- 5. Ensure section metadata exists (if missing)
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS meeting_dates JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS mid_exam_dates JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS final_exam_dates JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS geofence_config JSONB DEFAULT '{"center": {"latitude": 9.35, "longitude": 42.8}, "radius": 100}'::jsonb;
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS course_policy TEXT;
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS program_id UUID REFERENCES programs(id);
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id);
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS batch_id UUID REFERENCES batches(id);

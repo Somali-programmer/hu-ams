@@ -349,7 +349,10 @@ app.post('/api/auth/login', async (req, res) => {
       }).select().single();
       if (error) throw error;
       res.json(data);
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      const errorMessage = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      res.status(500).json({ error: errorMessage }); 
+    }
   });
 
   app.put('/api/centers/:id', async (req, res) => {
@@ -362,7 +365,10 @@ app.post('/api/auth/login', async (req, res) => {
       }).eq('id', req.params.id);
       if (error) throw error;
       res.json({ success: true });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      const errorMessage = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      res.status(500).json({ error: errorMessage }); 
+    }
   });
 
   // Programs
@@ -386,7 +392,10 @@ app.post('/api/auth/login', async (req, res) => {
       }).select().single();
       if (error) throw error;
       res.json(data);
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      const errorMessage = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      res.status(500).json({ error: errorMessage }); 
+    }
   });
 
   app.put('/api/programs/:id', async (req, res) => {
@@ -402,7 +411,10 @@ app.post('/api/auth/login', async (req, res) => {
       const { error } = await supabaseAdmin.from('programs').update(updateData).eq('id', req.params.id);
       if (error) throw error;
       res.json({ success: true });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      const errorMessage = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      res.status(500).json({ error: errorMessage }); 
+    }
   });
 
   // Batches
@@ -458,7 +470,9 @@ app.post('/api/auth/login', async (req, res) => {
       res.json({ success: true });
     } catch (err: any) { 
       console.error('Update Batch Error:', err);
-      res.status(500).json({ error: err.message }); 
+      // Ensure we extract a string message from Supabase error objects
+      const errorMessage = err.message || err.details || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      res.status(500).json({ error: errorMessage }); 
     }
   });
 
