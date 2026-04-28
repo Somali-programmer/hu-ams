@@ -1,10 +1,21 @@
 import React from 'react';
-import { Server, Database, Layers, Cpu, Globe, Lock, Share2 } from 'lucide-react';
+import { Server, Database, Layers, Cpu, Globe, Lock, Share2, ArrowLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import ThemeToggle from '../components/ThemeToggle';
+import Footer from '../components/Footer';
 
 const SystemArchitecture: React.FC = () => {
   return (
-    <div className="min-h-screen bg-brand-bg md:p-12 p-6">
+    <div className="min-h-screen bg-brand-bg md:p-12 p-6 transition-colors duration-500">
       <div className="max-w-4xl mx-auto space-y-12">
+        <div className="flex items-center justify-between">
+          <Link to="/" className="inline-flex items-center gap-2 text-brand-muted hover:text-brand-primary transition-colors font-medium">
+            <ArrowLeft className="w-5 h-5" />
+            Back to Home
+          </Link>
+          <ThemeToggle />
+        </div>
+        
         <header className="space-y-4">
           <div className="flex items-center gap-3 text-hu-gold">
             <Layers className="w-8 h-8" />
@@ -100,10 +111,9 @@ const SystemArchitecture: React.FC = () => {
             </div>
           </div>
         </section>
-
-        <footer className="pt-12 text-center">
-          <p className="text-brand-muted text-[10px] uppercase tracking-widest font-bold">Document Version 2.1.0 • System Architect: [Senior Lead]</p>
-        </footer>
+      </div>
+      <div className="mt-20">
+        <Footer />
       </div>
     </div>
   );

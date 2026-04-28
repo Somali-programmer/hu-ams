@@ -9,6 +9,7 @@ import InstructorDashboard from './InstructorDashboard';
 import AdminDashboard from './AdminDashboard';
 import QAOfficerDashboard from './QAOfficerDashboard';
 import Profile from './Profile';
+import Landing from './pages/Landing';
 import Documentation from './pages/Documentation';
 import SystemArchitecture from './pages/SystemArchitecture';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -55,6 +56,30 @@ const DashboardRouter: React.FC<{ view?: string }> = ({ view = 'overview' }) => 
   }
 };
 
+const RootWrapper: React.FC = () => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-brand-bg">
+        <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-brand-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <ProtectedRoute>
+        <Layout>
+          <DashboardRouter view="overview" />
+        </Layout>
+      </ProtectedRoute>
+    );
+  }
+
+  return <Landing />;
+};
+
 export default function App() {
   React.useEffect(() => {
     const checkHealth = async () => {
@@ -82,13 +107,7 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route
                 path="/"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <DashboardRouter view="overview" />
-                    </Layout>
-                  </ProtectedRoute>
-                }
+                element={<RootWrapper />}
               />
               {/* Admin Routes */}
               <Route path="/admin/staff" element={<ProtectedRoute><Layout><AdminDashboard view="staff" /></Layout></ProtectedRoute>} />
@@ -117,8 +136,8 @@ export default function App() {
               <Route path="/student/attendance" element={<ProtectedRoute><Layout><StudentDashboard view="attendance" /></Layout></ProtectedRoute>} />
               <Route path="/student/schedule" element={<ProtectedRoute><Layout><StudentDashboard view="schedule" /></Layout></ProtectedRoute>} />
 
-              <Route path="/documentation" element={<Layout><Documentation /></Layout>} />
-              <Route path="/architecture" element={<Layout><SystemArchitecture /></Layout>} />
+              <Route path="/documentation" element={<Documentation />} />
+              <Route path="/architecture" element={<SystemArchitecture />} />
 
               <Route
                 path="/profile"

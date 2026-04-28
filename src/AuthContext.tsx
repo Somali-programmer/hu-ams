@@ -28,6 +28,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initAuth = async () => {
+      // Diagnostic check
+      try {
+        console.log('Performing API health check...');
+        const healthRes = await fetch('/api/health');
+        const healthData = await healthRes.json();
+        console.log('API health check result:', healthData);
+      } catch (err) {
+        console.error('API health check failed! This confirms the backend is unreachable from the frontend.', err);
+      }
+
       const token = localStorage.getItem('hu_token');
       if (token) {
         try {
@@ -53,13 +63,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string) => {
     setLoading(true);
+    const loginUrl = '/api/auth/login';
+    console.log(`Attempting login to: ${loginUrl}`);
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
       
+      console.log(`Login response status: ${res.status} ${res.statusText}`);
       const contentType = res.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const data = await res.json();
@@ -96,9 +109,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err) {
       setLoading(false);
-      console.error('Login request failed:', err);
+      console.error('Login request failed with error:', err);
       const errorMessage = err instanceof Error ? err.message : String(err);
-      return { success: false, message: `Network error: ${errorMessage}` };
+      
+      let friendlyMessage = `Network error: ${errorMessage}. This usually means the backend server is unreachable or crashed.`;
+      if (errorMessage.includes('Failed to fetch')) {
+        friendlyMessage = `Network error: Failed to fetch. Ensure the server is running on port 3000 and the /api routes are properly configured.`;
+      }
+      
+      return { success: false, message: friendlyMessage };
     }
   };
 

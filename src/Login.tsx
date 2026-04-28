@@ -5,8 +5,6 @@ import { ShieldCheck, User as UserIcon, Lock, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from './lib/utils';
 
-import ThemeToggle from './components/ThemeToggle';
-
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,10 +43,6 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-brand-bg p-4 relative overflow-hidden transition-colors duration-500">
-      <div className="absolute top-8 right-8 z-50">
-        <ThemeToggle />
-      </div>
-
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-primary/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-brand-primary/5 rounded-full blur-[120px]" />

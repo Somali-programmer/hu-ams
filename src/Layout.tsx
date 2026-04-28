@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Sidebar from './Sidebar';
-import Footer from './components/Footer';
+import DashboardFooter from './components/DashboardFooter';
 import { Menu, ShieldCheck, LogOut, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink } from 'react-router-dom';
@@ -8,19 +8,20 @@ import { cn } from './lib/utils';
 import { useAuth } from './AuthContext';
 import { menuItems } from './config/navigation';
 import ThemeToggle from './components/ThemeToggle';
+import { NotificationBell } from './components/NotificationBell';
 
 const policyContent: Record<string, { title: string, content: React.ReactNode }> = {
   support: {
-    title: "Technical Support",
+    title: "System Instructions",
     content: (
       <div className="space-y-4 text-sm text-brand-muted leading-relaxed">
-        <p>If you experience any issues with the HU-AMS (Attendance Management System), please reach out to the technical staff through the following channels:</p>
+        <p>If you experience any issues with the HU-AMS (Attendance Management System), please refer to the following instructions:</p>
         <ul className="list-disc pl-5 space-y-2 text-brand-text">
-          <li><strong>Email:</strong> ams-support@haramaya.edu.et</li>
-          <li><strong>Office:</strong> Computer Science Department, Main Campus, Block 4.</li>
-          <li><strong>Operating Hours:</strong> Monday to Friday, 8:00 AM - 5:00 PM (EAT).</li>
+          <li><strong>Instructors:</strong> You have the ability to manage courses, start live tracking sessions, and modify student attendance.</li>
+          <li><strong>QA Officers:</strong> Your role contains monitoring and auditing attendance for compliance and generating reports.</li>
+          <li><strong>Students:</strong> You can view your current attendance record within your registered courses and receive alerts for poor attendance.</li>
+          <li><strong>Support:</strong> You can reach out to ams-support@haramaya.edu.et or the CS Department at Main Campus, Block 4 for further questions.</li>
         </ul>
-        <p className="mt-4">Please include your ID number, program details, and a detailed description of the problem along with any relevant screenshots for faster resolution.</p>
       </div>
     )
   },
@@ -149,8 +150,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </span>
               </div>
               
-              <div className="scale-75">
-                <ThemeToggle />
+              <div className="flex items-center gap-2 md:gap-3">
+                <NotificationBell />
+                <div className="scale-75">
+                  <ThemeToggle />
+                </div>
               </div>
               
               {/* Desktop Profile & Logout */}
@@ -189,7 +193,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {children}
       </main>
 
-      <Footer />
+      <DashboardFooter onOpenModal={setActiveModal} />
 
       {/* Policy Modals */}
       <AnimatePresence>

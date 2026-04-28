@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -16,19 +17,23 @@ dotenv.config();
 const JWT_SECRET = process.env.JWT_SECRET || 'hu-default-secret';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = 3000;
 
+app.use(cors());
 app.use(express.json());
 
 // Middleware
-// Development request logging middleware (disabled for production)
-// app.use((req, res, next) => {
-//   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-//   next();
-// });
+// Development request logging middleware
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api')) {
+    console.log(`[API Request] ${new Date().toISOString()} - ${req.method} ${req.url}`);
+  }
+  next();
+});
 
 // API Routes
 app.get('/api/health', async (req, res) => {
+  console.log('Health check requested');
   let dbStatus = 'disconnected';
   try {
     const { error } = await supabaseAdmin.from('departments').select('count', { count: 'exact', head: true });
@@ -47,13 +52,14 @@ app.get('/api/health', async (req, res) => {
 
 // Auth Routes
 app.post('/api/auth/login', async (req, res) => {
+  console.log('Login attempt for username:', req.body.username);
   const { username, password } = req.body;
 
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error('Login attempt failed: Supabase secrets missing.');
     return res.status(500).json({ 
       success: false, 
-      message: 'Database configuration error. Please ensure Supabase secrets are set in Vercel/Environment.' 
+      message: 'Database configuration error. Please ensure Supabase secrets are set in Settings.' 
     });
   }
 
@@ -904,8 +910,8 @@ app.post('/api/auth/login', async (req, res) => {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else if (!process.env.VERCEL) {
-    // Production static serving
+  } else {
+    // Production static serving (including when on VERCEL, but our local server handles it)
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -913,19 +919,17 @@ app.post('/api/auth/login', async (req, res) => {
     });
   }
 
-  if (!process.env.VERCEL) {
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`
-      ================================================
-         HARAMAYA UNIVERSITY ATTENDANCE SYSTEM
-      ================================================
-         Server is running on http://0.0.0.0:${PORT}
-         Backend: Node.js / Express.js
-         Database: Supabase / PostgreSQL (Active)
-      ================================================
-      `);
-    });
-  }
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`
+    ================================================
+       HARAMAYA UNIVERSITY ATTENDANCE SYSTEM
+    ================================================
+       Server is running on http://0.0.0.0:${PORT}
+       Backend: Node.js / Express.js
+       Database: Supabase / PostgreSQL (Active)
+    ================================================
+    `);
+  });
 })();
 
 // Global error handler

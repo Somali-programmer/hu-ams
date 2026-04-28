@@ -1,22 +1,22 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Book, Layers, ShieldCheck, Github } from 'lucide-react';
+import { Book, Layers, ShieldCheck, Github, Globe, PhoneCall, Twitter, Youtube, Facebook } from 'lucide-react';
 
 const Footer: React.FC = () => {
   return (
     <footer className="w-full bg-white dark:bg-brand-surface border-t border-brand-border py-12 px-6 md:px-12 mt-20">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
-        <div className="space-y-4 col-span-1 md:col-span-2">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-8 lg:gap-12">
+        <div className="space-y-4 col-span-1 sm:col-span-2 lg:col-span-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-brand-primary rounded-lg flex items-center justify-center text-white font-serif font-bold text-lg">H</div>
-            <h3 className="font-serif font-bold text-xl text-brand-text">HU Smart Attendance</h3>
+            <h3 className="font-serif font-bold text-xl text-brand-text">HU-AMS Haramaya </h3>
           </div>
           <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
             The official attendance management ecosystem for Haramaya University, Department of Computer Science. Engineered for accuracy, scalability, and academic integrity.
           </p>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 col-span-1">
           <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted">System Resources</h4>
           <ul className="space-y-3">
             <li>
@@ -34,13 +34,55 @@ const Footer: React.FC = () => {
           </ul>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-4 col-span-1">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted">University Links</h4>
+          <ul className="space-y-3">
+            <li>
+              <a href="https://www.haramaya.edu.et/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-brand-primary transition-colors">
+                <Globe className="w-4 h-4" />
+                <span>HU Website</span>
+              </a>
+            </li>
+            <li>
+              <a href="https://www.haramaya.edu.et/maintenance-contact/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-brand-primary transition-colors">
+                <PhoneCall className="w-4 h-4" />
+                <span>Contact Details</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div className="space-y-4 col-span-1">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted">Social Media</h4>
+          <ul className="space-y-3">
+            <li>
+              <a href="https://www.facebook.com/HRMUNIV/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-brand-primary transition-colors">
+                <Facebook className="w-4 h-4" />
+                <span>Facebook</span>
+              </a>
+            </li>
+            <li>
+              <a href="https://x.com/haramayauniver4" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-brand-primary transition-colors">
+                <Twitter className="w-4 h-4" />
+                <span>Twitter / X</span>
+              </a>
+            </li>
+            <li>
+              <a href="https://youtube.com/@haramayauniversity1295?si=nNCtF_T9nkh1lGBK" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm font-medium text-gray-400 hover:text-brand-primary transition-colors">
+                <Youtube className="w-4 h-4" />
+                <span>YouTube</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <div className="space-y-4 col-span-1">
           <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted">Department Admin</h4>
           <div className="space-y-3">
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Support: cs.admin@haramaya.edu.et</p>
             <div className="flex items-center gap-3">
               <ShieldCheck className="w-5 h-5 text-green-500" />
-              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">SSL SECURED</span>
+              <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded dark:bg-green-500/10 dark:text-green-400">SSL SECURED</span>
             </div>
           </div>
         </div>
