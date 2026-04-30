@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { supabaseAdmin } from '../server/db/supabase.js';
+import { supabaseAdmin } from '../server/db/hu_ams_client.js';
 import { EventEmitter } from 'events';
 
 import jwt from 'jsonwebtoken';
@@ -95,10 +95,10 @@ app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
 
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.error('Login attempt failed: Supabase secrets missing.');
+    console.error('Login attempt failed: Database secrets missing.');
     return res.status(500).json({ 
       success: false, 
-      message: 'Database configuration error. Please ensure Supabase secrets are set in Settings.' 
+      message: 'Database configuration error. Please ensure environment secrets are set in Settings.' 
     });
   }
 
@@ -1045,7 +1045,7 @@ app.post('/api/auth/login', async (req, res) => {
       ================================================
          Server is running on http://0.0.0.0:${PORT}
          Backend: Node.js / Express.js
-         Database: Supabase / PostgreSQL (Active)
+         Database: PostgreSQL / Cloud Persistence (Active)
       ================================================
       `);
     });

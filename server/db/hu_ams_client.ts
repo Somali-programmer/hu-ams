@@ -11,7 +11,7 @@ if (supabaseUrl && !supabaseUrl.startsWith('http')) {
 const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('❌ Supabase credentials missing! Database operations will fail.');
+  console.error('❌ Database credentials missing! Persistence operations will fail.');
   console.error('Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
 }
 

@@ -1,169 +1,116 @@
-# Haramaya University Smart Attendance System
+<div align="center">
+  <img src="https://somali-programmer.github.io/2018_exit_exam-/logo.png" alt="Haramaya University Logo" width="120" />
+  <h1>HU-AMS: Haramaya University Attendance Management System</h1>
+  <p><strong>A Final Year Computer Science Capstone Project</strong></p>
+  <p align="center">
+    <i>Bridging Academic Integrity with Modern Geofencing Technology</i>
+  </p>
+</div>
 
-## 🎓 Project Overview
-The Haramaya University Smart Attendance System is a comprehensive, full-stack solution designed to automate and digitize attendance tracking across multiple campuses, centers, and academic programs. It leverages **Smart Geofencing**, **Relational Synchronization**, and **Real-time Session Management** to ensure data integrity and security.
+<hr />
 
-### Key Pillars
-1.  **Identity Integrity**: Secure role-based access for Admins, Instructors, and Students.
-2.  **Geographical Verification**: Geofencing ensures students can only mark attendance when physically present at the designated location (Center).
-3.  **Autonomous Synchronization**: Database triggers handle enrollment logic automatically based on batch and center intersections.
-4.  **Actionable Insights**: Real-time dashboards for monitoring attendance patterns and eligibility.
+## 🎓 Executive Summary
+The **Haramaya University Attendance Management System (HU-AMS)** is a robust, full-stack enterprise-grade solution engineered to digitize and automate the attendance tracking process across Haramaya University's diverse campuses and academic programs. Developed as a final year Computer Science project, the system addresses the critical need for verifiable, real-time attendance data by integrating **Smart Geofencing**, **Cryptographic Session Tokens**, and **Automated Enrollment Synchronization**.
+
+## 🏛 System Architecture & Design
+HU-AMS is built on a highly normalized relational database architecture, ensuring data consistency and strict adherence to university academic structures (Departments -> Programs -> Batches -> Students).
+
+### Core Components
+1.  **Identity & Access Management (IAM)**: Secured role-based authentication for Administrators, Instructors, and Students.
+2.  **Geographical Verification Layer**: Utilizes the Haversine formula and device GPS sensors to enforce physical presence requirements via configurable geofences.
+3.  **Active Session Synchronization**: Real-time coordination between instructor-led sessions and student marking windows using dynamic JWT-backed tokens.
+4.  **Administrative Intelligence**: Centralized control for managing batches, centers, and global academic status (Promotion/Advancement).
 
 ---
 
-## 📊 Database Architecture (ERD)
+## 📊 Relational Data Modeling (ERD)
 
-The system uses a highly normalized PostgreSQL schema hosted on Supabase.
+The persistence layer is managed via a PostgreSQL schema, optimized for high-concurrency attendance events.
 
 ```mermaid
 erDiagram
-    DEPARTMENTS ||--o{ PROGRAMS : "offers"
-    DEPARTMENTS ||--o{ COURSES : "owns"
-    PROGRAMS ||--o{ BATCHES : "defines"
-    CENTERS ||--o{ BATCHES : "hosts"
+    DEPARTMENTS ||--o{ PROGRAMS : "defines"
+    DEPARTMENTS ||--o{ COURSES : "catalogs"
+    PROGRAMS ||--o{ BATCHES : "structures"
+    CENTERS ||--o{ BATCHES : "localizes"
     CENTERS ||--o{ SECTIONS : "contains"
-    BATCHES ||--o{ STUDENT_PROFILES : "groups"
-    USERS ||--|| STUDENT_PROFILES : "role:STUDENT"
-    USERS ||--|| STAFF_PROFILES : "role:INSTRUCTOR"
-    SEMESTERS ||--o{ SECTIONS : "active_in"
-    COURSES ||--o{ SECTIONS : "scheduled_as"
-    USERS ||--o{ SECTIONS : "teaches"
-    SECTIONS ||--o{ ENROLLMENTS : "has"
-    STUDENT_PROFILES ||--o{ ENROLLMENTS : "enrols"
-    SECTIONS ||--o{ SESSIONS : "starts"
-    SESSIONS ||--o{ ATTENDANCE : "recorded_in"
-    STUDENT_PROFILES ||--o{ ATTENDANCE : "marks"
-
-    DEPARTMENTS {
-        uuid id PK
-        string name
-    }
-
-    PROGRAMS {
-        uuid id PK
-        uuid department_id FK
-        string name
-        int duration_years
-    }
-
-    CENTERS {
-        uuid id PK
-        string name
-        jsonb location_metadata
-    }
-
-    BATCHES {
-        uuid id PK
-        uuid program_id FK
-        uuid center_id FK
-        string name
-        int entry_year
-        int current_year
-        int current_semester
-    }
-
-    USERS {
-        uuid id PK
-        string username
-        password_hash hash
-        enum role
-        string full_name
-    }
-
-    SECTIONS {
-        uuid id PK
-        uuid course_id FK
-        uuid instructor_id FK
-        uuid semester_id FK
-        uuid batch_id FK
-        uuid center_id FK
-        jsonb geofence_config
-        text course_policy
-    }
-
-    SESSIONS {
-        uuid id PK
-        uuid section_id FK
-        string token
-        timestamp token_expiry
-        enum status
-    }
-
-    ATTENDANCE {
-        uuid id PK
-        uuid session_id FK
-        uuid student_id FK
-        enum status
-        jsonb metadata
-    }
+    BATCHES ||--o{ STUDENT_PROFILES : "associates"
+    USERS ||--|| STUDENT_PROFILES : "identifies as STUDENT"
+    USERS ||--|| STAFF_PROFILES : "identifies as STAFF"
+    SEMESTERS ||--o{ SECTIONS : "manages"
+    COURSES ||--o{ SECTIONS : "schedules"
+    USERS ||--o{ SECTIONS : "instructs"
+    SECTIONS ||--o{ ENROLLMENTS : "registers"
+    STUDENT_PROFILES ||--o{ ENROLLMENTS : "enrolls in"
+    SECTIONS ||--o{ SESSIONS : "initiates"
+    SESSIONS ||--o{ ATTENDANCE : "validates"
+    STUDENT_PROFILES ||--o{ ATTENDANCE : "submits"
 ```
 
 ---
 
-## 🛠 Technical Stack
+## 🛠 Technology Stack (Modern Web Standards)
 
-### Frontend
--   **Framework**: React 18 with TypeScript
--   **Bundler**: Vite
--   **Styling**: Tailwind CSS (Custom Design System)
--   **State Management**: React Context API
--   **Animations**: Framer Motion
--   **Icons**: Lucide React
+### Frontend Environment
+-   **Framework**: React 18 (Functional Components & Hooks)
+-   **Language**: TypeScript (Strict Type Checking)
+-   **Styling**: Tailwind CSS with custom Design Tokens (HU-Gold/Primary)
+-   **State & Animation**: React Context API & Motion (Framer)
+-   **Data Visualization**: Recharts for attendance analytics
 
-### Backend (Full-Stack API)
--   **Runtime**: Node.js (Vercel Edge Functions compatible)
--   **Framework**: Express.js
--   **Database**: PostgreSQL (Supabase)
--   **Real-time**: Supabase Realtime / PostgreSQL Triggers
--   **Auth**: JWT & Supabase Auth Integration
-
----
-
-## 🚀 Business Logic & Triggers
-
-### 1. The "Always-Sync" Principle
-The system eliminates manual student list management through Database Triggers.
--   **`sync_enrollment_on_student_change`**: When a student's batch or center changes, they are automatically enrolled in all active sections matching that intersection.
--   **`sync_enrollment_on_section_change`**: When a new section is created, all students belonging to the matching Batch and Center are enrolled immediately.
-
-### 2. Smart Geofencing
-Every `Section` can have a custom circular geofence.
--   Students must be within `radius` meters of the `latitude`/`longitude` center to successfully mark attendance.
--   Calculations are verified server-side with metadata captured during the marking process.
-
-### 3. Session Security
--   Instructors generate dynamic tokens for sessions.
--   Tokens stay valid for a set duration (e.g., 5 minutes) or until manually ended.
--   Attendance marking is restricted to `active` sessions only.
+### Backend Architecture
+-   **Runtime**: Node.js 20+
+-   **Application Server**: Express.js
+-   **Database**: PostgreSQL
+-   **ORM/BaaS**: Supabase Admin SDK for secure relational operations
+-   **Security**: JSON Web Tokens (JWT) for session persistence
 
 ---
 
-## 📁 Project Structure
+## 🚀 Business Logic & Automated Workflows
+
+### 1. Autonomous Enrollment (The "Always-Sync" Principle)
+HU-AMS utilizes PostgreSQL Triggers to maintain real-time enrollment accuracy, removing manual intervention:
+-   **`sync_enrollment_on_student_change`**: Reacts to student batch/center updates by automatically adjusting enrollment in all active academic sections.
+-   **`sync_enrollment_on_section_change`**: Instantly populates new course sections with students who intersect the section's Batch and Center requirements.
+
+### 2. Spatiotemporal Verification
+-   **Spatial**: Cross-references student GPS coordinates against the Section's defined `geofenceCenter` and `radius`.
+-   **Temporal**: Enforces `token_expiry` windows and `late_threshold` logic, automatically classifying attendance as **Present**, **Late**, or **Absent**.
+
+### 3. Identity Separation
+Specific data profiles for **Regular** (2 semesters/year) and **Extension** (3 semesters/year) programs ensure the system respects HU's varied academic calendars.
+
+---
+
+## 📁 Repository Structure
 
 ```text
 /
-├── api/                # Express API (Serverless Routes)
-│   └── index.ts        # Main Entry Point
-├── server/             # Backend Business Logic
-│   ├── db/             # Supabase Client
-│   └── services/       # Import & Processing logic
-├── src/                # Frontend
-│   ├── components/     # UI Components
-│   └── App.tsx         # Root Component
-├── SUPABASE_SETUP.sql  # Database Schema
-└── vercel.json         # Deployment Config
+├── api/                    # Serverless API routes (Express.js)
+├── server/                 
+│   ├── db/                 # HU-AMS Client (Database configuration)
+│   └── services/           # Academic logic & bulk import services
+├── src/                    # Frontend Client
+│   ├── components/         # Atomic UI components
+│   ├── pages/              # Domain-specific views (Admin/Instructor/Student)
+│   └── App.tsx             # Application Router
+├── HU_AMS_SCHEMA.sql       # Core Database Definition
+├── HU_AMS_MIGRATIONS.sql   # Versioned Database Modifications
+└── vercel.json             # Deployment manifest
 ```
 
 ---
 
-## ⚙️ Environment Variables
-The system requires the following keys in your `.env` file:
+## ⚙️ Deployment & Configuration
+
+Ensure a `.env` file is configured with the following parameters:
 ```bash
-SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-JWT_SECRET=your_secure_random_string
-GEMINI_API_KEY=your_gemini_key (for AI features)
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+JWT_SECRET=...
 ```
 
----
-**Developed for Haramaya University Final Year Project.**
+**Designed and Implemented for Haramaya University.**
+*Faculty of Computing and Informatics | Computer Science Department*

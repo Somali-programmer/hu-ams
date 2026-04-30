@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { supabaseAdmin } from './server/db/supabase';
+import { supabaseAdmin } from './server/db/hu_ams_client';
 import dotenv from 'dotenv';
 
 dotenv.config();
