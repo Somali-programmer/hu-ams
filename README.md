@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="https://somali-programmer.github.io/2018_exit_exam-/logo.png" alt="Haramaya University Logo" width="120" />
-  <h1>HU-AMS: Haramaya University Attendance Management System</h1>
+  <img src="https://somali-programmer.github.io/2018_exit_exam-/logo.png" alt="Haramaya University Logo" width="1200" />
+  <h2>HU-AMS: Haramaya University Attendance Management System</h2>
   <p><strong>A Final Year Computer Science Capstone Project</strong></p>
   <p align="center">
     <i>Bridging Academic Integrity with Modern Geofencing Technology</i>
