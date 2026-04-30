@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { supabaseAdmin } from '../server/db/supabase.js';
+import { EventEmitter } from 'events';
 
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
@@ -29,6 +30,44 @@ app.use((req, res, next) => {
     console.log(`[API Request] ${new Date().toISOString()} - ${req.method} ${req.url}`);
   }
   next();
+});
+
+// Real-time events support
+
+const dbEvents = new EventEmitter();
+dbEvents.setMaxListeners(100);
+
+// Initialize exactly one channel for all clients
+supabaseAdmin.channel('public-db-changes')
+  .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+    console.log('[SSE] Database change detected:', payload.table);
+    dbEvents.emit('change', payload);
+  })
+  .subscribe();
+
+// SSE endpoint for client applications
+app.get('/api/events', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders && res.flushHeaders();
+
+  res.write('data: {"type":"connected"}\n\n');
+
+  const pingInterval = setInterval(() => {
+    res.write('data: {"type":"ping"}\n\n');
+  }, 15000);
+
+  const onChange = (payload: any) => {
+    res.write(`data: ${JSON.stringify({ type: 'update', table: payload.table })}\n\n`);
+  };
+
+  dbEvents.on('change', onChange);
+
+  req.on('close', () => {
+    clearInterval(pingInterval);
+    dbEvents.off('change', onChange);
+  });
 });
 
 // API Routes
@@ -837,6 +876,8 @@ app.post('/api/auth/login', async (req, res) => {
         date: s.session_date,
         sessionToken: s.token,
         tokenExpiry: s.token_expiry,
+        lateThreshold: s.metadata?.lateThreshold,
+        startTime: s.metadata?.startTime,
         endTime: s.end_time,
         status: s.status
       })));
@@ -852,7 +893,11 @@ app.post('/api/auth/login', async (req, res) => {
         token_expiry: s.tokenExpiry,
         session_date: s.date,
         end_time: s.endTime,
-        status: s.status || 'active'
+        status: s.status || 'active',
+        metadata: { 
+          lateThreshold: s.lateThreshold,
+          startTime: s.startTime
+        }
       }).select().single();
       if (error) throw error;
       res.json({
@@ -861,10 +906,21 @@ app.post('/api/auth/login', async (req, res) => {
         date: data.session_date,
         sessionToken: data.token,
         tokenExpiry: data.token_expiry,
+        lateThreshold: data.metadata?.lateThreshold,
+        startTime: data.metadata?.startTime,
         endTime: data.end_time,
         status: data.status
       });
-    } catch (err: any) { res.status(500).json({ error: err.message }); }
+    } catch (err: any) { 
+      if (err.message && err.message.includes("Could not find the 'metadata' column")) {
+        res.status(400).json({ 
+          error: 'DATABASE_UPGRADE_REQUIRED', 
+          message: 'The "metadata" column is missing from the "sessions" table. Please run this in SQL Editor: ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB;' 
+        });
+      } else {
+        res.status(500).json({ error: err.message }); 
+      }
+    }
   });
 
   app.put('/api/sessions/:id', async (req, res) => {
@@ -886,6 +942,7 @@ app.post('/api/auth/login', async (req, res) => {
         studentId: a.student_id,
         markedAt: a.marked_at,
         status: a.status,
+        reason: a.metadata?.reason,
         location: a.metadata?.location || { latitude: 0, longitude: 0 },
         distanceFromCenter: a.metadata?.distance || 0
       })));
@@ -902,12 +959,46 @@ app.post('/api/auth/login', async (req, res) => {
         marked_at: a.markedAt,
         metadata: {
           location: a.location,
-          distance: a.distanceFromCenter
+          distance: a.distanceFromCenter,
+          reason: a.reason,
+          userAgent: a.metadata?.userAgent
         }
       }).select().single();
       if (error) throw error;
       res.json(data);
     } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.put('/api/attendance/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const updateData: any = {};
+      if (updates.status) updateData.status = updates.status;
+
+      let targetSession = updates.sessionId;
+      let targetStudent = updates.studentId;
+
+      const { data: existingData } = await supabaseAdmin.from('attendance')
+        .select('*')
+        .eq('session_id', targetSession)
+        .eq('student_id', targetStudent)
+        .single();
+      
+      const { data, error } = await supabaseAdmin.from('attendance')
+        .update(updateData)
+        .eq('session_id', targetSession)
+        .eq('student_id', targetStudent)
+        .select().single();
+        
+      if (error) {
+        throw error;
+      }
+      res.json(data);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Bulk Register Students

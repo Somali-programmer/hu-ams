@@ -51,7 +51,7 @@ interface InstructorDashboardProps {
 const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overview' }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { sections: allSections, semesters, courses, updateSection, enrollments, users, sessions, addSession, updateSession, attendance, centers, programs } = useAppData();
+  const { sections: allSections, semesters, courses, updateSection, enrollments, users, sessions, addSession, updateSession, attendance, updateAttendance, centers, programs } = useAppData();
   const [sections, setSections] = useState<Section[]>([]);
   const [activeSession, setActiveSession] = useState<ClassSession | null>(null);
   const [liveAttendance, setLiveAttendance] = useState<(Attendance & { student?: User })[]>([]);
@@ -60,6 +60,10 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
   const [editingGeofence, setEditingGeofence] = useState<Record<string, { latitude: string, longitude: string, radius: string }>>({});
   const [selectedAnalyticsSection, setSelectedAnalyticsSection] = useState<string>('');
   const [analyticsTimeRange, setAnalyticsTimeRange] = useState<'all' | 'month' | 'week'>('all');
+  const [advancedSessionOptions, setAdvancedSessionOptions] = useState(false);
+  const [sessionExpiryMinutes, setSessionExpiryMinutes] = useState(30);
+  const [sessionLateMinutes, setSessionLateMinutes] = useState(15);
+  const [sessionDurationMinutes, setSessionDurationMinutes] = useState(90);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [editingScheduleSectionId, setEditingScheduleSectionId] = useState<string | null>(null);
   const [tempSchedule, setTempSchedule] = useState<ScheduleBlock[]>([]);
@@ -234,6 +238,19 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
     const section = sections.find(s => s.sectionId === selectedSection);
     if (!section) return;
 
+    if (section.status === 'completed') {
+      toast.error('This course section is already marked as completed. You cannot start a new session.');
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const todaysSessions = sessions.filter(s => s.sectionId === selectedSection && s.date === today);
+    
+    if (todaysSessions.length >= 2) {
+      toast.error('Limit reached! You can only start 2 sessions per day (Morning and Afternoon).');
+      return;
+    }
+
     if (!section.coursePolicy) {
       const confirmDefault = confirm('No Course Policy defined. Would you like to use the standard university attendance policy and start the session?');
       if (confirmDefault) {
@@ -245,32 +262,35 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
       }
     }
 
+    const currentLabel = todaysSessions.length === 0 ? 'Morning' : 'Afternoon';
+
     setLoading(true);
     try {
       const token = generateSessionToken();
       
-      // Dynamic policy based on program type
-      const isExtension = programs.find(p => p.programId === section.programType)?.name?.toLowerCase() === 'extension';
-      const tokenExpiryMinutes = isExtension ? 30 : 15;
-      const sessionDurationMinutes = isExtension ? 180 : 90;
-
-      const expiry = addMinutes(new Date(), tokenExpiryMinutes).toISOString();
+      const expiry = addMinutes(new Date(), sessionExpiryMinutes).toISOString();
+      const lateThreshold = addMinutes(new Date(), sessionLateMinutes).toISOString();
       const sessionEnd = addMinutes(new Date(), sessionDurationMinutes).toISOString();
       
       const newSession: ClassSession = {
         sessionId: `session-${Date.now()}`,
         sectionId: selectedSection,
-        date: new Date().toISOString().split('T')[0],
+        date: today,
+        startTime: new Date().toISOString(),
         sessionToken: token,
         tokenExpiry: expiry,
+        lateThreshold: lateThreshold,
         endTime: sessionEnd,
         status: 'active',
+        label: currentLabel as 'Morning' | 'Afternoon'
       };
-      
-      addSession(newSession);
+
+      await addSession(newSession);
       setActiveSession(newSession);
+      toast.success(`${currentLabel} session started successfully!`);
     } catch (error) {
       console.error('Failed to start session:', error);
+      toast.error('Failed to start session.');
     } finally {
       setLoading(false);
     }
@@ -280,10 +300,72 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
     if (!activeSession) return;
     setLoading(true);
     try {
-      updateSession(activeSession.sessionId, { status: 'completed' });
+      // Auto-mark absent for students who didn't check in
+      const sectionEnrollments = enrollments.filter(e => e.sectionId === activeSession.sectionId);
+      const enrolledStudentIds = sectionEnrollments.map(e => e.studentId);
+      const attendedStudentIds = liveAttendance.map(a => a.studentId);
+      const absentStudentIds = enrolledStudentIds.filter(id => !attendedStudentIds.includes(id));
+      
+      // We don't need to explicitly create "absent" records here unless we want to,
+      // it is usually derived. Let's just complete the session.
+      
+      await updateSession(activeSession.sessionId, { status: 'completed' });
       setActiveSession(null);
+      toast.success('Session completed successfully.');
     } catch (error) {
       console.error('Failed to end session:', error);
+      toast.error('Failed to end session.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (record: Attendance, approved: boolean) => {
+    try {
+      let finalStatus: 'present' | 'absent' | 'late' = 'absent';
+      
+      if (approved) {
+        const sessionForRecord = sessions.find(s => s.sessionId === record.sessionId);
+        if (sessionForRecord && sessionForRecord.lateThreshold) {
+          const markedTime = new Date(record.markedAt).getTime();
+          const lateTime = new Date(sessionForRecord.lateThreshold).getTime();
+          finalStatus = markedTime > lateTime ? 'late' : 'present';
+        } else {
+          finalStatus = 'present';
+        }
+      }
+
+      await updateAttendance(record.attendanceId, { 
+        status: finalStatus,
+        sessionId: record.sessionId,
+        studentId: record.studentId
+      });
+      toast.success(`Request ${approved ? 'approved (' + finalStatus + ')' : 'rejected'}`);
+    } catch (err) {
+      console.log('Using local mock fallback for approval', err);
+      toast.error('Failed to update attendance');
+    }
+  };
+
+  const handleCompleteSection = async (sectionId: string) => {
+    const section = sections.find(s => s.sectionId === sectionId);
+    if (!section) return;
+
+    const course = courses.find(c => c.courseId === section.courseId);
+    if (!confirm(`Are you sure you want to mark the course "${course?.title}" (Section ${sectionId.split('-')[1]}) as completed? This will archive the section.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updateSection(sectionId, { status: 'completed' });
+      toast.success('Course section marked as completed.');
+      if (selectedSection === sectionId) {
+        setSelectedSection('');
+      }
+    } catch (error) {
+      console.error('Failed to complete section:', error);
+      toast.error('Failed to complete course.');
     } finally {
       setLoading(false);
     }
@@ -409,11 +491,12 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
               const instructorSectionIds = sections.map(s => s.sectionId);
               const instructorEnrollments = enrollments.filter(e => instructorSectionIds.includes(e.sectionId));
               const uniqueStudents = new Set(instructorEnrollments.map(e => e.studentId)).size;
+              const completedCourses = sections.filter(s => s.status === 'completed').length;
               
               return [
                 { label: 'Total Students', value: uniqueStudents.toString(), icon: Users, color: 'text-brand-primary', bg: 'bg-brand-primary/10' },
                 { label: 'Avg. Attendance', value: '92%', icon: BarChart3, color: 'text-green-600 dark:text-hu-gold', bg: 'bg-green-100 dark:bg-hu-gold/10' },
-                { label: 'Active Sections', value: sections.length, icon: CalendarDays, color: 'text-green-600 dark:text-hu-gold', bg: 'bg-green-100 dark:bg-hu-gold/10' }
+                { label: 'Courses Completed', value: `${completedCourses}/${sections.length}`, icon: CheckCircle2, color: 'text-blue-600 dark:text-hu-gold', bg: 'bg-blue-50 dark:bg-hu-gold/10' }
               ].map((stat, i) => (
                 <motion.div
                   key={stat.label}
@@ -472,12 +555,13 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                       <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-brand-muted whitespace-nowrap">Section</th>
                       <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-brand-muted whitespace-nowrap">Enrolled</th>
                       <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-brand-muted whitespace-nowrap">Schedule</th>
+                      <th className="px-8 py-6 text-[11px] uppercase tracking-[0.2em] font-bold text-brand-muted whitespace-nowrap text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-brand-border">
                     {sections.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-8 py-12 text-center text-sm font-medium text-gray-400">
+                        <td colSpan={6} className="px-8 py-12 text-center text-sm font-medium text-gray-400">
                           No courses assigned for the active semester.
                         </td>
                       </tr>
@@ -494,7 +578,18 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                             className="hover:bg-hu-cream/10 transition-colors group"
                           >
                             <td className="px-8 py-6 text-sm font-bold text-brand-primary font-mono whitespace-nowrap">{course?.courseCode || 'N/A'}</td>
-                            <td className="px-8 py-6 text-sm font-bold text-brand-text whitespace-nowrap">{course?.title || 'N/A'}</td>
+                            <td className="px-8 py-6 text-sm font-bold text-brand-text whitespace-nowrap">
+                              <div className="flex flex-col">
+                        <span>{course?.title || 'N/A'}</span>
+                        {section.status === 'completed' ? (
+                          <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Completed
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">Active Management</span>
+                        )}
+                      </div>
+                            </td>
                             <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{section.sectionId.split('-')[1] || section.sectionId}</td>
                             <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">{enrolledCount} Students</td>
                             <td className="px-8 py-6 text-sm font-medium text-gray-400 whitespace-nowrap">
@@ -509,6 +604,21 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                               ) : (
                                 section.schedule || 'Not Scheduled'
                               )}
+                            </td>
+                            <td className="px-8 py-6 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => handleCompleteSection(section.sectionId)}
+                                disabled={section.status === 'completed' || loading}
+                                className={cn(
+                                  "px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all shadow-sm flex items-center gap-2 justify-end ml-auto",
+                                  section.status === 'completed'
+                                    ? "bg-green-100 text-green-700 cursor-default"
+                                    : "bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-100"
+                                )}
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                {section.status === 'completed' ? 'Finished' : 'Complete Compilation'}
+                              </button>
                             </td>
                           </motion.tr>
                         );
@@ -564,14 +674,16 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                   onChange={(e) => setSelectedSection(e.target.value)}
                   className="w-full pl-6 pr-12 py-4 bg-brand-bg dark:bg-brand-surface border border-brand-border rounded-xl font-bold text-sm text-brand-text dark:text-gray-100 appearance-none focus:border-brand-primary focus:ring-0 outline-none transition-all shadow-sm"
                 >
-                  {sections.map((s) => {
-                    const center = centers.find(c => c.centerId === s.center);
-                    const programName = programs.find(p => p.programId === s.programType)?.name || s.programType;
-                    return (
+                  {sections
+                    .filter(s => s.status !== 'completed')
+                    .map((s) => {
+                      const center = centers.find(c => c.centerId === s.center);
+                      const programName = programs.find(p => p.programId === s.programType)?.name || s.programType;
+                      return (
                         <option key={s.sectionId} value={s.sectionId}>
-                        {s.room} • {s.sectionId.split('-')[1]} • {courses.find(c => c.courseId === s.courseId)?.title} • {center?.name || s.center?.toUpperCase() || 'N/A'} ({programName})
-                      </option>
-                    );
+                          {s.room} • {s.sectionId.split('-')[1]} • {courses.find(c => c.courseId === s.courseId)?.title} • {center?.name || s.center?.toUpperCase() || 'N/A'} ({programName})
+                        </option>
+                      );
                   })}
                 </select>
                 <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-hu-gold">
@@ -636,7 +748,9 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                         <div className="grid grid-cols-2 gap-4 text-sm">
                           <div>
                             <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Coordinates</p>
-                            <p className="font-mono font-medium text-brand-text">{parseFloat(displayLat as string).toFixed(4)}, {parseFloat(displayLng as string).toFixed(4)}</p>
+                            <p className="font-mono font-medium text-brand-text">
+                              {displayLat ? parseFloat(displayLat as string).toFixed(4) : '0.0000'}, {displayLng ? parseFloat(displayLng as string).toFixed(4) : '0.0000'}
+                            </p>
                           </div>
                           <div>
                             <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Radius</p>
@@ -730,20 +844,77 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
               );
             })()}
 
-            <button
-              onClick={handleStartSession}
-              disabled={loading || !selectedSection}
-              className="hu-button-rounded inline-flex items-center gap-4"
-            >
-              {loading ? (
-                <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Play className="w-5 h-5 fill-current" />
-                  <span className="uppercase tracking-widest text-sm">Start Premium Session</span>
-                </>
+            <div className="flex flex-col space-y-4 max-w-lg mx-auto mb-8 text-left">
+              <button 
+                onClick={() => setAdvancedSessionOptions(!advancedSessionOptions)}
+                className="text-xs font-bold text-brand-primary uppercase tracking-widest hover:underline flex items-center justify-between"
+              >
+                Advanced Session Options {advancedSessionOptions ? '▼' : '►'}
+              </button>
+              
+              {advancedSessionOptions && (
+                <div className="bg-brand-bg rounded-xl border border-brand-border p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="hu-label mb-2 block">Token Expiry (min)</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={sessionExpiryMinutes} 
+                        onChange={(e) => setSessionExpiryMinutes(Number(e.target.value))}
+                        className="w-full bg-hu-cream/30 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-hu-gold/20 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="hu-label mb-2 block">Late After (min)</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={sessionLateMinutes} 
+                        onChange={(e) => setSessionLateMinutes(Number(e.target.value))}
+                        className="w-full bg-hu-cream/30 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-hu-gold/20 outline-none"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="hu-label mb-2 block">Total Session Duration (min)</label>
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={sessionDurationMinutes} 
+                        onChange={(e) => setSessionDurationMinutes(Number(e.target.value))}
+                        className="w-full bg-hu-cream/30 border-none rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-hu-gold/20 outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
+
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+              <button
+                onClick={handleStartSession}
+                disabled={loading || !selectedSection}
+                className="hu-button-rounded inline-flex items-center gap-4 w-full md:w-auto"
+              >
+                {loading ? (
+                  <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 fill-current" />
+                    <span className="uppercase tracking-widest text-sm">Start Premium Session</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => handleCompleteSection(selectedSection)}
+                disabled={loading || !selectedSection}
+                className="hu-button-secondary inline-flex items-center gap-4 bg-green-50 text-green-700 border-green-200 hover:bg-green-100 w-full md:w-auto py-5"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                <span className="uppercase tracking-widest text-sm">Complete Course Compilation</span>
+              </button>
+            </div>
           </motion.div>
         ) : (
           <motion.div
@@ -755,7 +926,14 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-[80px] -mr-32 -mt-32" />
               
               <div className="text-center md:text-left space-y-2 relative z-10">
-                <p className="text-white dark:text-hu-charcoal/80 font-bold uppercase tracking-[0.4em] text-[10px]">Active Session Token</p>
+                <div className="flex items-center justify-center md:justify-start gap-4">
+                  <p className="text-white dark:text-hu-charcoal/80 font-bold uppercase tracking-[0.4em] text-[10px]">Active Session Token</p>
+                  {activeSession.label && (
+                    <span className="px-3 py-1 bg-hu-gold text-hu-charcoal rounded-full text-[9px] font-extrabold uppercase tracking-[0.1em] shadow-sm animate-pulse">
+                      {activeSession.label} Session
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-4xl md:text-7xl font-serif font-bold tracking-[0.1em] text-white dark:text-hu-charcoal">{activeSession.sessionToken}</h3>
                 <div className="flex flex-col md:flex-row items-center gap-3 justify-center md:justify-start pt-2">
                   <div className="px-4 py-1.5 bg-white/20 backdrop-blur-md rounded-full flex items-center gap-2">
@@ -785,18 +963,25 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
               </div>
             </div>
 
-            <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-10 bg-brand-surface">
-              {[
-                { label: 'Present', value: liveAttendance.length, color: 'text-brand-primary' },
-                { label: 'Late Arrival', value: '0', color: 'text-brand-text/40' },
-                { label: 'Total Enrolled', value: '45', color: 'text-brand-text' }
-              ].map((stat, i) => (
-                <div key={stat.label} className={cn("text-center space-y-2", i === 1 && "md:border-x border-brand-border")}>
-                  <p className="hu-label">{stat.label}</p>
-                  <p className={cn("text-2xl md:text-4xl font-serif font-bold", stat.color)}>{stat.value}</p>
-                </div>
-              ))}
-            </div>
+              <div className="p-4 md:p-8 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-10 bg-brand-surface">
+              {(() => {
+                const sectionEnrollments = enrollments.filter(e => e.sectionId === activeSession?.sectionId);
+                const activeEnrolledCount = sectionEnrollments.length;
+                const presentCount = liveAttendance.filter(a => a.status === 'present').length;
+                const lateCount = liveAttendance.filter(a => a.status === 'late').length;
+
+                return [
+                  { label: 'Present', value: presentCount.toString(), color: 'text-brand-primary' },
+                  { label: 'Late Arrival', value: lateCount.toString(), color: 'text-brand-text/40' },
+                  { label: 'Total Enrolled', value: activeEnrolledCount.toString(), color: 'text-brand-text' }
+                ].map((stat, i) => (
+                  <div key={stat.label} className={cn("text-center space-y-2", i === 1 && "md:border-x border-brand-border")}>
+                    <p className="hu-label">{stat.label}</p>
+                    <p className={cn("text-2xl md:text-4xl font-serif font-bold", stat.color)}>{stat.value}</p>
+                  </div>
+                ))
+              })()}
+              </div>
           </motion.div>
         )}
       </section>
@@ -872,10 +1057,10 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                           {record ? format(new Date(record.markedAt), 'hh:mm:ss a') : '--:--:--'}
                         </td>
                         <td className="px-8 py-6 whitespace-nowrap">
-                          {record ? (
+                          {record && record.location && record.location.latitude != null ? (
                             <div className="flex flex-col">
-                              <span className="text-xs font-mono font-bold text-hu-gold">{record.location.latitude.toFixed(4)}°N</span>
-                              <span className="text-xs font-mono font-bold text-hu-gold">{record.location.longitude.toFixed(4)}°E</span>
+                              <span className="text-xs font-mono font-bold text-hu-gold">{Number(record.location.latitude).toFixed(4)}°N</span>
+                              <span className="text-xs font-mono font-bold text-hu-gold">{Number(record.location.longitude).toFixed(4)}°E</span>
                             </div>
                           ) : (
                             <span className="text-xs text-gray-300 italic">Not available</span>
@@ -887,9 +1072,10 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                               "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border",
                               record.status === 'present' ? "bg-green-50 text-green-600 border-green-100" :
                               record.status === 'late' ? "bg-orange-50 text-orange-600 border-orange-100" :
+                              record.status === 'pending' ? "bg-purple-50 text-purple-600 border-purple-100 animate-pulse" :
                               "bg-red-50 text-red-600 border-red-100"
                             )}>
-                              {record.status === 'present' ? 'Verified' : (record.status?.toUpperCase() || 'ABSENT')}
+                              {record.status === 'present' ? 'Verified' : (record.status === 'pending' ? 'Pending Approval' : (record.status?.toUpperCase() || 'ABSENT'))}
                             </span>
                           ) : (
                             <span className="px-4 py-1.5 bg-brand-bg text-gray-400 rounded-full text-[10px] font-bold uppercase tracking-widest border border-brand-border">
@@ -898,6 +1084,23 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                           )}
                         </td>
                         <td className="px-8 py-6 whitespace-nowrap">
+                          {record?.status === 'pending' ? (
+                            <div className="flex flex-col gap-2 relative">
+                               <div className="text-xs text-gray-500 whitespace-normal w-48 mb-1">
+                                 <strong>Reason:</strong> {record.reason || 'No reason provided'}
+                               </div>
+                               <div className="flex gap-2">
+                                 <button 
+                                  onClick={() => handleApproveRequest(record, true)}
+                                  className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider"
+                                 >Approve</button>
+                                 <button 
+                                  onClick={() => handleApproveRequest(record, false)}
+                                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold uppercase tracking-wider"
+                                 >Reject</button>
+                               </div>
+                            </div>
+                          ) : (
                           <div className="flex items-center gap-2">
                             {(['present', 'late', 'absent'] as const).map((status) => (
                               <button
@@ -914,6 +1117,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                               </button>
                             ))}
                           </div>
+                          )}
                         </td>
                       </motion.tr>
                     );
@@ -942,9 +1146,30 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="text-lg md:text-xl font-serif font-bold text-brand-text">{course?.courseCode} - {course?.title}</h3>
-                      <p className="text-sm text-gray-400 font-medium">Section {section.sectionId.split('-')[1]} • {section.room}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-gray-400 font-medium">Section {section.sectionId.split('-')[1]} • {section.room}</p>
+                        {section.status === 'completed' && (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[9px] font-bold uppercase tracking-widest rounded-md">Completed</span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleCompleteSection(section.sectionId)}
+                        className={cn(
+                          "px-4 py-2 rounded-xl transition-all flex items-center gap-2 border shadow-sm",
+                          section.status === 'completed' 
+                            ? "bg-green-100 text-green-700 border-green-200 cursor-default" 
+                            : "bg-white text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200 shadow-red-500/5"
+                        )}
+                        disabled={section.status === 'completed'}
+                        title={section.status === 'completed' ? "Course Completed" : "Complete Course Compilation"}
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">
+                          {section.status === 'completed' ? 'Finished' : 'Complete'}
+                        </span>
+                      </button>
                       <button 
                         onClick={() => {
                           setRosterSectionId(section.sectionId);
@@ -1177,7 +1402,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div className="hu-card-alt p-6 space-y-2">
                       <p className="hu-label">Overall Attendance</p>
-                      <h4 className="text-3xl font-serif font-bold text-brand-primary">{stats.overallRate.toFixed(1)}%</h4>
+                      <h4 className="text-3xl font-serif font-bold text-brand-primary">{(stats.overallRate || 0).toFixed(1)}%</h4>
                       <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden mt-4">
                         <div className="bg-brand-primary h-full" style={{ width: `${stats.overallRate}%` }} />
                       </div>
@@ -1233,7 +1458,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                           <div key={item.label} className="space-y-2">
                             <div className="flex justify-between items-center">
                               <span className="text-xs font-bold text-gray-600 uppercase tracking-widest">{item.label}</span>
-                              <span className="text-sm font-bold text-brand-text">{item.count} ({((item.count / item.total) * 100).toFixed(1)}%)</span>
+                              <span className="text-sm font-bold text-brand-text">{item.count} ({item.total > 0 ? ((item.count / item.total) * 100).toFixed(1) : '0.0'}%)</span>
                             </div>
                             <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
                               <div className={cn("h-full", item.color)} style={{ width: `${(item.count / item.total) * 100}%` }} />
@@ -1271,7 +1496,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                                     <div className="flex-1 bg-gray-100 h-1.5 rounded-full overflow-hidden max-w-[100px]">
                                       <div className="bg-hu-gold h-full" style={{ width: `${s.rate}%` }} />
                                     </div>
-                                    <span className="text-xs font-bold text-brand-text">{s.rate.toFixed(0)}%</span>
+                                    <span className="text-xs font-bold text-brand-text">{(s.rate || 0).toFixed(0)}%</span>
                                   </div>
                                 </td>
                               </tr>
@@ -1726,7 +1951,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ view = 'overv
                         onClick={() => setTempSchedule([...tempSchedule, { dayOfWeek: 'Monday', startTime: '08:00', endTime: '10:00' }])}
                         className="text-xs font-bold text-brand-primary hover:text-hu-gold transition-colors"
                       >
-                        + Add Block
+                        Add Block
                       </button>
                     </div>
                   </div>

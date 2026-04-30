@@ -106,30 +106,36 @@ export interface Section {
   };
   geofenceRadius: number; // in meters
   coursePolicy?: string; // Policy defined by instructor
+  status?: 'active' | 'completed';
 }
 
 export interface ClassSession {
   sessionId: string;
   sectionId: string;
   date: string;
+  startTime?: string;
   sessionToken: string;
   tokenExpiry: string;
+  lateThreshold?: string;
   endTime?: string;
   status: 'active' | 'expired' | 'completed';
+  label?: 'Morning' | 'Afternoon';
 }
 
 export interface Attendance {
   attendanceId: string;
   studentId: string;
   sessionId: string;
-  status: 'present' | 'late' | 'absent';
+  status: 'present' | 'late' | 'absent' | 'pending';
   markedAt: string;
-  location: {
+  location?: {
     latitude: number;
     longitude: number;
   };
-  distanceFromCenter: number;
+  distanceFromCenter?: number;
   policyAcceptedAt?: string; // Timestamp when student agreed to course policy
+  reason?: string; // For manual requests
+  metadata?: any;
 }
 
 export interface AuditLog {

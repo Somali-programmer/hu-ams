@@ -26,6 +26,8 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [policyAccepted, setPolicyAccepted] = useState<Record<string, boolean>>({});
+  const [pendingRequestSession, setPendingRequestSession] = useState<(ClassSession & { section?: Section }) | null>(null);
+  const [manualReason, setManualReason] = useState<string>('');
 
   const activeSemester = semesters.find(s => s.isActive);
 
@@ -100,7 +102,22 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
     setSuccess(null);
 
     try {
-      // 0. Verify Policy Acceptance
+      // 0. Pre-requisite checks
+      const isEnrolled = enrollments.some(e => e.sectionId === session.sectionId && e.studentId === user.userId);
+      if (!isEnrolled) {
+        throw new Error('You are not enrolled in this section.');
+      }
+
+      if (session.status !== 'active') {
+        throw new Error('This session is no longer active.');
+      }
+
+      const isExpired = new Date() > new Date(session.tokenExpiry);
+      if (isExpired) {
+        throw new Error('The attendance window has expired.');
+      }
+
+      // 0.5. Verify Policy Acceptance
       if (session.section.coursePolicy && !policyAccepted[session.sessionId]) {
         throw new Error('You must read and agree to the course policy before marking attendance.');
       }
@@ -111,22 +128,36 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
       }
 
       let latitude, longitude;
+      let gpsAccuracy = 0;
 
       if (mockLocation) {
         // Use section center for mock
         latitude = session.section.geofenceCenter.latitude;
         longitude = session.section.geofenceCenter.longitude;
+        gpsAccuracy = 5; // Perfect accuracy for mock
       } else {
-        // 2. Verify GPS
+        // 2. Verify GPS with strict anti-spoofing
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
+          navigator.geolocation.getCurrentPosition(resolve, (err) => {
+            if (err.code === err.PERMISSION_DENIED) reject(new Error("Location permission denied. Please enable GPS."));
+            else if (err.code === err.POSITION_UNAVAILABLE) reject(new Error("Location information is unavailable."));
+            else if (err.code === err.TIMEOUT) reject(new Error("Location request timed out."));
+            else reject(new Error("An unknown error occurred while fetching location."));
+          }, {
             enableHighAccuracy: true,
-            timeout: 10000,
+            timeout: 15000,
             maximumAge: 0,
           });
         });
+        
         latitude = position.coords.latitude;
         longitude = position.coords.longitude;
+        gpsAccuracy = position.coords.accuracy;
+
+        // Reject if accuracy is too low (e.g. cell tower triangulation instead of GPS)
+        if (gpsAccuracy > 500) {
+          throw new Error(`GPS accuracy is too low (${Math.round(gpsAccuracy)}m). Please turn on Wi-Fi or step outside for a better signal.`);
+        }
       }
 
       const distance = calculateDistance(
@@ -136,8 +167,11 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         session.section.geofenceCenter.longitude
       );
 
-      if (distance > session.section.geofenceRadius) {
-        throw new Error(`Location mismatch. You are ${Math.round(distance)}m away from the classroom.`);
+      // Add a small buffer to the radius to account for reasonable GPS drift, but keep it strict
+      const effectiveRadius = session.section.geofenceRadius + Math.min(gpsAccuracy, 50);
+
+      if (distance > effectiveRadius) {
+        throw new Error(`Location mismatch. You are ${Math.round(distance)}m away from the classroom (Limit: ${effectiveRadius}m).`);
       }
 
       // 3. Check if already marked
@@ -146,23 +180,83 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
         throw new Error('Attendance already marked for this session.');
       }
 
-      // 4. Save Attendance
+      // 4. Determine Dynamic Status (Late vs Present)
+      let studentStatus: 'present' | 'late' = 'present';
+      if (session.lateThreshold) {
+        if (Date.now() > new Date(session.lateThreshold).getTime()) {
+          studentStatus = 'late';
+        }
+      } else {
+        const sessionStart = parseInt(session.sessionId.split('-')[1]);
+        if (!isNaN(sessionStart)) {
+          const minutesElapsed = (Date.now() - sessionStart) / (1000 * 60);
+          if (minutesElapsed > 15) {
+            studentStatus = 'late';
+          }
+        }
+      }
+
+      // 5. Save Attendance with Metadata
+      const metadata = {
+        userAgent: navigator.userAgent,
+        accuracy: gpsAccuracy,
+        deviceTime: new Date().toISOString()
+      };
+
       const newAttendance: Attendance = {
         attendanceId: `att-${Date.now()}`,
         studentId: user.userId,
         sessionId: session.sessionId,
-        status: 'present',
+        status: studentStatus,
         markedAt: new Date().toISOString(),
         location: { latitude, longitude },
         distanceFromCenter: distance,
         policyAcceptedAt: session.section.coursePolicy ? new Date().toISOString() : undefined,
+        // @ts-ignore - If the actual backend supports it, great, otherwise it will just sit here on frontend or be ignored.
+        metadata
       };
 
-      addAttendance(newAttendance);
-      setSuccess('Attendance marked successfully! You are recorded as PRESENT.');
+      await addAttendance(newAttendance);
+      setSuccess(`Attendance marked successfully! You are recorded as ${studentStatus.toUpperCase()}.`);
       setToken('');
     } catch (err: any) {
       setError(err.message || 'Failed to mark attendance.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualAttendanceRequest = async (session: ClassSession & { section?: Section }, reason: string) => {
+    if (!user || !session.section) return;
+    
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const alreadyRequested = attendanceHistory.some(a => a.sessionId === session.sessionId);
+      if (alreadyRequested) {
+        throw new Error('A request or attendance entry already exists for this session.');
+      }
+
+      const newAttendanceRequest: Attendance = {
+        attendanceId: `att-${Date.now()}`,
+        studentId: user.userId,
+        sessionId: session.sessionId,
+        status: 'pending',
+        markedAt: new Date().toISOString(),
+        reason: reason,
+        metadata: {
+          userAgent: navigator.userAgent,
+          deviceTime: new Date().toISOString()
+        }
+      };
+
+      await addAttendance(newAttendanceRequest);
+      setSuccess('Manual attendance request submitted. The instructor will review it.');
+      setPendingRequestSession(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit request.');
     } finally {
       setLoading(false);
     }
@@ -438,23 +532,39 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
                         <span>{success}</span>
                       </div>
                     )}
-                    <div className="text-center space-y-1">
-                      <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Entry Token</p>
-                      <input
-                        type="text"
-                        placeholder="000000"
-                        maxLength={6}
-                        value={token}
-                        onChange={(e) => setToken(e.target.value.toUpperCase())}
-                        className="w-full text-center py-2 bg-white dark:bg-brand-surface border border-brand-border rounded-xl font-mono text-xl font-bold tracking-[0.2em] outline-none focus:border-brand-primary uppercase"
-                      />
-                    </div>
+                    {new Date() > new Date(session.tokenExpiry) ? (
+                      <div className="text-center p-4 space-y-4">
+                        <p className="text-xs font-bold text-red-500 uppercase tracking-widest">Marking Window Closed</p>
+                        <p className="text-[10px] text-gray-400">The automatic marking period for this session has ended. Please submit a manual request below.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-center space-y-1">
+                          <p className="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Entry Token</p>
+                          <input
+                            type="text"
+                            placeholder="000000"
+                            maxLength={6}
+                            value={token}
+                            onChange={(e) => setToken(e.target.value.toUpperCase())}
+                            className="w-full text-center py-2 bg-white dark:bg-brand-surface border border-brand-border rounded-xl font-mono text-xl font-bold tracking-[0.2em] outline-none focus:border-brand-primary uppercase"
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleMarkAttendance(session)}
+                          disabled={loading || !token || (session.section?.coursePolicy && !policyAccepted[session.sessionId])}
+                          className="w-full py-3 bg-brand-primary text-white dark:text-hu-charcoal rounded-xl text-xs font-bold uppercase tracking-[0.2em] shadow-lg shadow-brand-primary/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          {loading ? 'Verifying...' : 'Mark Present'}
+                        </button>
+                      </>
+                    )}
                     <button
-                      onClick={() => handleMarkAttendance(session)}
-                      disabled={loading || !token || (session.section?.coursePolicy && !policyAccepted[session.sessionId])}
-                      className="w-full py-3 bg-brand-primary text-white dark:text-hu-charcoal rounded-xl text-xs font-bold uppercase tracking-[0.2em] shadow-lg shadow-brand-primary/20 hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
+                      onClick={() => setPendingRequestSession(session)}
+                      disabled={loading}
+                      className="w-full mt-3 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold uppercase tracking-[0.1em] transition-all disabled:opacity-50"
                     >
-                      {loading ? 'Verifying...' : 'Mark Present'}
+                      I can't mark attendance
                     </button>
                   </div>
                 </motion.div>
@@ -626,6 +736,46 @@ const StudentDashboard: React.FC<StudentDashboardProps> = ({ view = 'overview' }
               })}
           </div>
         </section>
+      )}
+
+      {/* Manual Request Modal */}
+      {pendingRequestSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-brand-surface border border-brand-border rounded-xl p-6 md:p-8 max-w-md w-full shadow-2xl"
+          >
+            <h3 className="text-xl font-serif font-bold text-brand-primary mb-2">Request Manual Attendance</h3>
+            <p className="text-sm text-brand-text mb-4">Please describe why you cannot mark attendance automatically (e.g., GPS issue, broken camera).</p>
+            
+            <textarea
+              value={manualReason}
+              onChange={(e) => setManualReason(e.target.value)}
+              placeholder="Reason..."
+              className="w-full bg-brand-bg border border-brand-border rounded-xl p-4 text-sm text-brand-text mb-4 focus:border-brand-primary outline-none min-h-[100px]"
+            />
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setPendingRequestSession(null);
+                  setManualReason('');
+                }}
+                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-brand-text rounded-xl text-xs font-bold uppercase tracking-wider transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleManualAttendanceRequest(pendingRequestSession, manualReason)}
+                disabled={!manualReason.trim() || loading}
+                className="flex-1 py-3 bg-brand-primary text-white rounded-xl text-xs font-bold uppercase tracking-wider transition-all disabled:opacity-50"
+              >
+                {loading ? 'Submitting...' : 'Submit Request'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );

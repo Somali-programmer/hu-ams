@@ -38,18 +38,45 @@ const QAOfficerDashboard: React.FC<QAOfficerDashboardProps> = ({ view = 'overvie
     return percentage < 80;
   });
 
+  const [riskDistribution, setRiskDistribution] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    let low = 0, med = 0, high = 0;
+    const students = users.filter((u) => u.role === 'student');
+    if (students.length === 0) {
+      setRiskDistribution([
+        { name: 'Low Risk', value: 1 },
+        { name: 'Medium Risk', value: 0 },
+        { name: 'High Risk', value: 0 },
+      ]);
+      return;
+    }
+    students.forEach((u) => {
+      const studentAttendance = attendance.filter((a) => a.studentId === u.userId);
+      const totalSessions = sessions.length;
+      if (totalSessions === 0) {
+        low++;
+        return;
+      }
+      const percentage = (studentAttendance.length / totalSessions) * 100;
+      if (percentage < 70) high++;
+      else if (percentage < 85) med++;
+      else low++;
+    });
+
+    setRiskDistribution([
+      { name: 'Low Risk', value: low },
+      { name: 'Medium Risk', value: med },
+      { name: 'High Risk', value: high },
+    ]);
+  }, [users, attendance, sessions]);
+
   // Mock data for charts
   const complianceTrend = [
     { name: 'Week 1', value: 88 },
     { name: 'Week 2', value: 92 },
     { name: 'Week 3', value: 90 },
     { name: 'Week 4', value: 94 },
-  ];
-
-  const riskDistribution = [
-    { name: 'Low Risk', value: 85 },
-    { name: 'Medium Risk', value: 10 },
-    { name: 'High Risk', value: 5 },
   ];
 
   const COLORS = ['#10B981', '#F59E0B', '#EF4444'];

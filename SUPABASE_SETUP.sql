@@ -135,6 +135,7 @@ CREATE TABLE sessions (
     session_date DATE DEFAULT CURRENT_DATE,
     end_time TIMESTAMPTZ,
     status session_status DEFAULT 'active',
+    metadata JSONB, -- {lateThreshold, startTime}
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

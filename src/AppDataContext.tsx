@@ -27,6 +27,7 @@ interface AppDataContextType {
   updateCourse: (courseId: string, updates: Partial<Course>) => Promise<void>;
   deleteCourse: (courseId: string) => Promise<void>;
   addAttendance: (record: Attendance) => Promise<void>;
+  updateAttendance: (attendanceId: string, updates: Partial<Attendance>) => Promise<void>;
   addSession: (session: ClassSession) => Promise<void>;
   updateSession: (sessionId: string, updates: Partial<ClassSession>) => Promise<void>;
   addEnrollment: (enrollment: Enrollment) => Promise<void>;
@@ -105,6 +106,42 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   React.useEffect(() => {
     syncWithServer();
+
+    let timeout: any = null;
+    const eventSource = new EventSource('/api/events');
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'update') {
+          if (timeout) clearTimeout(timeout);
+          timeout = setTimeout(() => {
+            syncWithServer();
+            // We use a clean toast ID to prevent duplicate toasts
+            import('react-hot-toast').then(({ default: toast }) => {
+              toast.success('System auto-refreshed with real-time updates', {
+                id: 'real-time-sync',
+                duration: 2000,
+                icon: '🔄',
+                style: {
+                  borderRadius: '10px',
+                  background: '#333',
+                  color: '#fff',
+                  fontSize: '12px'
+                }
+              });
+            });
+          }, 1000);
+        }
+      } catch (err) {
+        // Ignore parse errors
+      }
+    };
+
+    return () => {
+      eventSource.close();
+      if (timeout) clearTimeout(timeout);
+    };
   }, []);
 
   const [setCourses_unused, setCourses_u] = useState(null); // Keep reference to setCourses if needed, or omit if using setters directly
@@ -292,6 +329,19 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     await syncWithServer();
   };
 
+  const updateAttendance = async (attendanceId: string, updates: Partial<Attendance>) => {
+    const res = await fetch(`/api/attendance/${attendanceId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || 'Failed to update attendance');
+    }
+    await syncWithServer();
+  };
+
   const addSession = async (session: ClassSession) => {
     const res = await fetch('/api/sessions', {
       method: 'POST',
@@ -449,7 +499,7 @@ export const AppDataProvider: React.FC<{ children: ReactNode }> = ({ children })
       users, courses, sections, sessions, attendance, semesters, enrollments, auditLogs, centers, programs, batches,
       addSection, updateSection, deleteSection, addSemester, setActiveSemester,
       addUser, updateUser, deleteUser, addCourse, updateCourse, deleteCourse,
-      addAttendance, addSession, updateSession, addEnrollment, addAuditLog,
+      addAttendance, updateAttendance, addSession, updateSession, addEnrollment, addAuditLog,
       addCenter, updateCenter, deleteCenter, addProgram, updateProgram, deleteProgram,
       addBatch, updateBatch, deleteBatch, deleteAllStudents, syncWithServer
     }}>

@@ -25,3 +25,6 @@ ALTER TABLE sections ADD COLUMN IF NOT EXISTS course_policy TEXT;
 ALTER TABLE sections ADD COLUMN IF NOT EXISTS program_id UUID REFERENCES programs(id);
 ALTER TABLE sections ADD COLUMN IF NOT EXISTS center_id UUID REFERENCES centers(id);
 ALTER TABLE sections ADD COLUMN IF NOT EXISTS batch_id UUID REFERENCES batches(id);
+ 
+ -- 6. Add metadata to sessions
+ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB;
