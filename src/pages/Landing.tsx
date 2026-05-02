@@ -24,7 +24,7 @@ const Header = ({ onLoginClick }: { onLoginClick: (e: React.MouseEvent) => void 
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/80 dark:bg-[#121212]/80 backdrop-blur-md border-b border-brand-border shadow-sm py-2' : 'bg-transparent py-4'}`}>
       <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="https://somali-programmer.github.io/2018_exit_exam-/logo.png" alt="HU Logo" className="w-10 h-10 md:w-12 md:h-12 object-contain drop-shadow-sm" />
+          <img src="../logo.png" alt="HU Logo" className="w-10 h-10 md:w-12 md:h-12 object-contain drop-shadow-sm" />
           <div className="flex flex-col justify-center">
             <h1 className="font-serif font-bold text-brand-text leading-tight tracking-tight flex flex-col pt-0.5">
               <span className="text-[15px] sm:text-lg md:text-xl lg:text-2xl whitespace-nowrap">Haramaya University</span>
