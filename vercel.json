@@ -1,16 +1,21 @@
 {
   "version": 2,
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/index.ts"
+      "source": "/api/(.*)",
+      "destination": "/api/index.ts"
     },
     {
-      "handle": "filesystem"
+      "source": "/(.*\\.xml)",
+      "destination": "/$1"
     },
     {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*\\.html)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/((?!api/|.*\\.[a-zA-Z0-9]+$).*)",
+      "destination": "/index.html"
     }
   ]
 }
