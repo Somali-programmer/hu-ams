@@ -221,7 +221,21 @@ EXECUTE FUNCTION sync_enrollment_on_section_change();
 
 
 -- 6. ROW LEVEL SECURITY (RLS) - Example for Attendance
+ALTER TABLE departments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE programs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE centers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE semesters ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Students can read their own attendance
 CREATE POLICY "Students see own attendance" ON attendance
@@ -237,5 +251,39 @@ CREATE POLICY "Instructors see section attendance" ON attendance
         )
     );
 
--- 5. INITIAL DATA (BOOTSTRAP)
+-- 7. PERFORMANCE INDEXES
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_student_profiles_batch_center ON student_profiles(batch_id, center_id);
+CREATE INDEX IF NOT EXISTS idx_staff_profiles_dept ON staff_profiles(department_id);
+CREATE INDEX IF NOT EXISTS idx_sections_composite ON sections(batch_id, center_id, course_id);
+CREATE INDEX IF NOT EXISTS idx_sections_instructor ON sections(instructor_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_section ON enrollments(section_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_section ON sessions(section_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(session_date);
+CREATE INDEX IF NOT EXISTS idx_attendance_session ON attendance(session_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_student ON attendance(student_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE is_read = false;
+
+-- 8. SUPABASE REALTIME CONFIGURATION
+DO $$ 
+DECLARE
+  t text;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+
+  FOR t IN SELECT unnest(ARRAY['notifications', 'attendance', 'sessions', 'sections'])
+  LOOP
+    BEGIN
+      EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE %I', t);
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+  END LOOP;
+END
+$$;
+
+-- 9. INITIAL DATA (BOOTSTRAP)
 INSERT INTO departments (name) VALUES ('Computer Science');
